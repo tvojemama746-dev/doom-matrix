@@ -312,6 +312,7 @@ void world_init(World *world) {
     }
     world->win_frames = 0;
     world->test_button_frames = 0;
+    world->intro_frames = INTRO_FRAMES;
     world_pick_target(world);
     for (int index = 0; index < WORLD_ENEMY_COUNT; ++index) {
         world->enemies[index].alive = false;
@@ -404,6 +405,10 @@ static void world_shoot_enemy(World *world, uint8_t damage) {
 }
 
 void world_update(World *world, const InputState *input) {
+    if (world->intro_frames > 0) {
+        world->intro_frames = input->fire_pressed ? 0 : world->intro_frames - 1;
+        return;
+    }
     if (world->win_frames > 0) {
         if (--world->win_frames == 0) {
             world_init(world);

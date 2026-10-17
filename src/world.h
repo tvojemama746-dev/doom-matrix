@@ -10,6 +10,9 @@
 #define WORLD_ENEMY_COUNT 25
 #define HUB_SIZE 7
 #define BUTTON_COUNT 5
+#define INTRO_MESSAGE "PRESS 5 BUTTONS TO ESCAPE"
+// Scroll speed is 1 column per 2 frames; 16 is the display width.
+#define INTRO_FRAMES ((16 + 6 * (int)(sizeof(INTRO_MESSAGE) - 1)) * 2)
 #define FIXED_ONE (1 << 16)
 
 enum {
@@ -52,6 +55,7 @@ typedef struct {
     uint8_t button_target;
     uint8_t win_frames;
     uint8_t test_button_frames;
+    uint16_t intro_frames;
 } World;
 
 void world_init(World *world);

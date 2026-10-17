@@ -227,3 +227,5 @@ Successful flashing ends with `Verifying Flash: 100%` and `OK`.
 - USB keyboard, UART controls, networking, and overclocking.
 - Any direct reuse of Doom source code or assets.
 
+- Five red LEDs in the top-left corner show the buttons still to press; each goes out when its button is pressed.
+- At start the matrix scrolls the text PRESS 5 BUTTONS TO ESCAPE (about 11 s, the game is paused; fire skips it).

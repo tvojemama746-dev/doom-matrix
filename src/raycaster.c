@@ -224,7 +224,54 @@ static void render_target_dot(const World *world) {
     display_set_pixel(column, DISPLAY_HEIGHT - 1, 0xff000000u);
 }
 
+// Classic 5x7 font columns, bit 0 = top row. Only the characters used by INTRO_MESSAGE.
+static uint8_t font_column(char character, int column) {
+    static const uint8_t glyphs[][5] = {
+        {0x27, 0x45, 0x45, 0x45, 0x39},  // 5
+        {0x7E, 0x11, 0x11, 0x11, 0x7E},  // A
+        {0x7F, 0x49, 0x49, 0x49, 0x36},  // B
+        {0x3E, 0x41, 0x41, 0x41, 0x22},  // C
+        {0x7F, 0x49, 0x49, 0x49, 0x41},  // E
+        {0x7F, 0x04, 0x08, 0x10, 0x7F},  // N
+        {0x3E, 0x41, 0x41, 0x41, 0x3E},  // O
+        {0x7F, 0x09, 0x09, 0x09, 0x06},  // P
+        {0x7F, 0x09, 0x19, 0x29, 0x46},  // R
+        {0x46, 0x49, 0x49, 0x49, 0x31},  // S
+        {0x01, 0x01, 0x7F, 0x01, 0x01},  // T
+        {0x3F, 0x40, 0x40, 0x40, 0x3F},  // U
+    };
+    static const char order[] = "5ABCENOPRSTU";
+
+    for (int index = 0; order[index] != '\0'; ++index) {
+        if (order[index] == character) {
+            return glyphs[index][column];
+        }
+    }
+    return 0;
+}
+
+static void render_intro(const World *world) {
+    static const char message[] = INTRO_MESSAGE;
+    int scroll = (INTRO_FRAMES - world->intro_frames) / 2;
+    int text_columns = (int)(sizeof(message) - 1) * 6;
+
+    for (int x = 0; x < DISPLAY_WIDTH; ++x) {
+        int text_column = scroll + x - DISPLAY_WIDTH;
+        uint8_t bits = 0;
+        if (text_column >= 0 && text_column < text_columns && text_column % 6 < 5) {
+            bits = font_column(message[text_column / 6], text_column % 6);
+        }
+        for (int y = 0; y < DISPLAY_HEIGHT; ++y) {
+            display_set_pixel(x, y, (bits >> y) & 1u ? 0xffa00000u : 0);
+        }
+    }
+}
+
 void raycaster_render(const World *world) {
+    if (world->intro_frames > 0) {
+        render_intro(world);
+        return;
+    }
     if (world->win_frames > 0) {
         uint32_t color = (world->win_frames / 8) % 2 ? 0x00ff0000u : 0x00200000u;
         for (int y = 0; y < DISPLAY_HEIGHT; ++y) {
@@ -318,4 +365,9 @@ void raycaster_render(const World *world) {
     display_set_pixel(DISPLAY_WIDTH - 1, 0,
         (red_intensity << 24));
     render_target_dot(world);
+    for (int index = 0; index < BUTTON_COUNT; ++index) {
+        if (!world->button_pressed[index]) {
+            display_set_pixel(index, 0, 0xa0000000u);
+        }
+    }
 }
