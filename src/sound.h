@@ -11,5 +11,6 @@ void sound_play_enemy_hit(bool killed);
 void sound_play_enemy_kill(void);
 void sound_play_boss_kill(void);
 void sound_play_morse_tone(uint16_t duration_ms);
+void sound_play_footstep(void);
 
 #endif

@@ -133,6 +133,12 @@ void sound_play_boss_kill(void) {
     sound_start_sequence(boss_kill_segments, 3);
 }
 
+void sound_play_footstep(void) {
+    static const SoundSegment step[] = {{110, 35}};
+
+    sound_start_sequence(step, 1);
+}
+
 void sound_play_morse_tone(uint16_t duration_ms) {
     static SoundSegment tone;
 

@@ -314,11 +314,42 @@ void world_init(World *world) {
     world->win_frames = 0;
     world->test_button_frames = 0;
     world->intro_frames = INTRO_FRAMES;
+    world->escape_frames = 0;
+    world->view_bob = 0;
     world_pick_target(world);
     for (int index = 0; index < WORLD_ENEMY_COUNT; ++index) {
         world->enemies[index].alive = false;
         world->enemies[index].respawn_timer = 0;
         world_spawn_enemy(world, index, ENEMY_INITIAL_MIN_DISTANCE);
+    }
+}
+
+static void world_start_escape(World *world) {
+    for (int index = 0; index < WORLD_ENEMY_COUNT; ++index) {
+        world->enemies[index].alive = false;
+    }
+    world->player_hits = 0;
+    world->escape_frames = ESCAPE_RUN_FRAMES + ESCAPE_FLASH_FRAMES;
+}
+
+// Scripted run: hub -> east door -> straight corridor along y=3 into the exit door at x=14.
+static void world_update_escape(World *world) {
+    int elapsed = ESCAPE_RUN_FRAMES + ESCAPE_FLASH_FRAMES - world->escape_frames;
+
+    if (elapsed < ESCAPE_RUN_FRAMES) {
+        world->player_x = FIXED_ONE + FIXED_ONE / 2 + elapsed * (FIXED_ONE * 15 / 100);
+        world->player_y = 3 * FIXED_ONE + FIXED_ONE / 2;
+        world->angle = 0;
+        world->view_bob = (uint8_t)((elapsed / 4) % 2);
+        if (elapsed % 8 == 0) {
+            sound_play_footstep();
+        }
+    } else {
+        world->view_bob = 0;
+    }
+    if (--world->escape_frames == 0) {
+        world->win_frames = WIN_FRAMES;
+        sound_play_boss_kill();
     }
 }
 
@@ -334,7 +365,7 @@ static void world_press_button(World *world, int index) {
             return;
         }
     }
-    world->win_frames = WIN_FRAMES;
+    world_start_escape(world);
 }
 
 static void world_shoot_pillar(World *world) {
@@ -457,6 +488,10 @@ void world_update(World *world, const InputState *input) {
         }
         --world->intro_frames;
         world_intro_speak(world);
+        return;
+    }
+    if (world->escape_frames > 0) {
+        world_update_escape(world);
         return;
     }
     if (world->win_frames > 0) {

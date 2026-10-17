@@ -10,6 +10,8 @@
 #define WORLD_ENEMY_COUNT 25
 #define HUB_SIZE 7
 #define BUTTON_COUNT 5
+#define ESCAPE_RUN_FRAMES 80
+#define ESCAPE_FLASH_FRAMES 30
 #define INTRO_MESSAGE "PRESS 5 BUTTONS TO ESCAPE"
 // Morse for the message takes 198 units of 2 frames (396 frames); the scroll (1 column per 2 frames) finishes earlier.
 #define INTRO_FRAMES 400
@@ -56,6 +58,8 @@ typedef struct {
     uint8_t win_frames;
     uint8_t test_button_frames;
     uint16_t intro_frames;
+    uint8_t escape_frames;
+    uint8_t view_bob;
 } World;
 
 void world_init(World *world);

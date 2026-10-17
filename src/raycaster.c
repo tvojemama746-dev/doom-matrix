@@ -117,6 +117,9 @@ static uint32_t wall_color(int32_t distance, bool vertical, uint8_t tile_type) {
     if (tile_type == 't') {
         return pack_color(255, 255, 255, 255);
     }
+    if (tile_type == 'E') {
+        return pack_color(80, 255, 140, 200);
+    }
     if (tile_type >= '1' && tile_type < '1' + BUTTON_COUNT) {
         return pack_color(255, 0, 0, intensity < 60 ? 60 : intensity);
     }
@@ -268,6 +271,17 @@ static void render_intro(const World *world) {
 }
 
 void raycaster_render(const World *world) {
+    int escape_elapsed = ESCAPE_RUN_FRAMES + ESCAPE_FLASH_FRAMES - world->escape_frames;
+    if (world->escape_frames > 0 && escape_elapsed >= ESCAPE_RUN_FRAMES) {
+        int level = (escape_elapsed - ESCAPE_RUN_FRAMES + 1) * 255 / ESCAPE_FLASH_FRAMES;
+        uint32_t white = ((uint32_t)level << 24) | ((uint32_t)level << 16) | ((uint32_t)level << 8);
+        for (int y = 0; y < DISPLAY_HEIGHT; ++y) {
+            for (int x = 0; x < DISPLAY_WIDTH; ++x) {
+                display_set_pixel(x, y, white);
+            }
+        }
+        return;
+    }
     if (world->intro_frames > 0) {
         render_intro(world);
         return;
@@ -312,7 +326,7 @@ void raycaster_render(const World *world) {
             wall_height = 1;
         }
 
-        int wall_top = (DISPLAY_HEIGHT - wall_height) / 2;
+        int wall_top = (DISPLAY_HEIGHT - wall_height) / 2 + world->view_bob;
         int wall_bottom = wall_top + wall_height;
         uint32_t wall;
         uint32_t patch = 0;
@@ -364,7 +378,9 @@ void raycaster_render(const World *world) {
     uint32_t red_intensity = ((uint32_t)remaining_hits * 255u) / 10u;
     display_set_pixel(DISPLAY_WIDTH - 1, 0,
         (red_intensity << 24));
-    render_target_dot(world);
+    if (world->escape_frames == 0) {
+        render_target_dot(world);
+    }
     for (int index = 0; index < BUTTON_COUNT; ++index) {
         if (!world->button_pressed[index]) {
             display_set_pixel(index, 0, 0xa0000000u);
