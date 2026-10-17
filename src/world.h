@@ -57,6 +57,7 @@ typedef struct {
     uint8_t button_target;
     uint8_t win_frames;
     uint8_t test_button_frames;
+    uint8_t test_button_hits;
     uint16_t intro_frames;
     uint8_t escape_frames;
     uint8_t view_bob;

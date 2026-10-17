@@ -29,6 +29,7 @@ static const int16_t sine_quarter[65] = {
 #define PILLAR_REACH_STEPS 128
 #define WIN_FRAMES 90
 #define TEST_BUTTON_FRAMES 15
+#define TEST_BUTTON_HITS_TO_ESCAPE 5
 #define MORSE_UNIT_FRAMES 2
 
 typedef struct {
@@ -313,6 +314,7 @@ void world_init(World *world) {
     }
     world->win_frames = 0;
     world->test_button_frames = 0;
+    world->test_button_hits = 0;
     world->intro_frames = INTRO_FRAMES;
     world->escape_frames = 0;
     world->view_bob = 0;
@@ -393,6 +395,12 @@ static void world_shoot_pillar(World *world) {
         } else if (tile == 'T') {
             world->test_button_frames = TEST_BUTTON_FRAMES;
             sound_play_enemy_hit(false);
+            if (++world->test_button_hits >= TEST_BUTTON_HITS_TO_ESCAPE) {
+                for (int index = 0; index < BUTTON_COUNT; ++index) {
+                    world->button_pressed[index] = true;
+                }
+                world_start_escape(world);
+            }
         }
         return;
     }
