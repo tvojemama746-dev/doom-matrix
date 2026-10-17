@@ -8,7 +8,7 @@
 
 #define WORLD_MAP_SIZE 128
 #define WORLD_ENEMY_COUNT 25
-#define HUB_SIZE 32
+#define HUB_SIZE 7
 #define FIXED_ONE (1 << 16)
 
 enum {

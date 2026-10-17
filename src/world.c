@@ -6,7 +6,7 @@
 #define CHUNK_GRID (WORLD_MAP_SIZE / CHUNK_SIZE)
 
 // Chunk edges are walls with a 2-tile gap at offsets 7 and 8, so any layout connects.
-static const char chunk_templates[5][CHUNK_SIZE][CHUNK_SIZE + 1] = {
+static const char chunk_templates[7][CHUNK_SIZE][CHUNK_SIZE + 1] = {
     {
         "#######..#######",
         "#..............#",
@@ -93,22 +93,58 @@ static const char chunk_templates[5][CHUNK_SIZE][CHUNK_SIZE + 1] = {
         "#..#........#..#",
         "#..#........#..#",
         "#..####..####..#",
+        "#..............#",
+        "#..............#",
+        "#######..#######",
+    },
+    {
+        "#######..#######",
+        "#..............#",
+        "#.###.####.###.#",
+        "#.###.####.###.#",
+        "#..............#",
+        "#.#####..#####.#",
+        "#.#####..#####.#",
+        "................",
+        "................",
+        "#.#####..#####.#",
+        "#.#####..#####.#",
+        "#..............#",
+        "#.###.####.###.#",
+        "#.###.####.###.#",
+        "#..............#",
+        "#######..#######",
+    },
+    {
+        "#######..#######",
+        "#..............#",
+        "#.##############",
+        "#..............#",
+        "##############.#",
+        "#..............#",
+        "#.##############",
+        "................",
+        "................",
+        "#..............#",
+        "##############.#",
+        "#..............#",
+        "#.##############",
         "#..............#",
         "#..............#",
         "#######..#######",
     },
 };
 
-// 'H' = hub (covers the 2x2 top-left chunks).
+// 'H' = hub (drawn over the top-left chunk, which uses template 4).
 static const char chunk_layout[CHUNK_GRID][CHUNK_GRID + 1] = {
-    "HH230413",
-    "HH403240",
-    "13042031",
-    "24310324",
-    "02403142",
-    "31240203",
-    "40324310",
-    "13041024",
+    "H5236041",
+    "35640563",
+    "16035261",
+    "25631024",
+    "06415362",
+    "31562053",
+    "46035641",
+    "15360524",
 };
 
 static uint8_t world_map[WORLD_MAP_SIZE][WORLD_MAP_SIZE];
@@ -136,7 +172,7 @@ static const int16_t sine_quarter[65] = {
 #define ENEMY_INITIAL_MIN_DISTANCE (6 * FIXED_ONE)
 #define PLAYER_MAX_HITS 10
 #define HUB_DOOR_X (HUB_SIZE - 1)
-#define HUB_DOOR_Y 23
+#define HUB_DOOR_Y 3
 #define PILLAR_REACH_STEPS 128
 
 typedef struct {
@@ -164,11 +200,7 @@ static uint32_t world_random_next(uint32_t *state) {
 }
 
 static void world_fill_pillar(int tile_x, int tile_y, uint8_t type) {
-    for (int dy = 0; dy < 2; ++dy) {
-        for (int dx = 0; dx < 2; ++dx) {
-            world_map[tile_y + dy][tile_x + dx] = type;
-        }
-    }
+    world_map[tile_y][tile_x] = type;
 }
 
 static void world_build_map(void) {
@@ -176,7 +208,7 @@ static void world_build_map(void) {
         for (int chunk_x = 0; chunk_x < CHUNK_GRID; ++chunk_x) {
             char kind = chunk_layout[chunk_y][chunk_x];
             if (kind == 'H') {
-                continue;
+                kind = '4';
             }
             const char (*chunk)[CHUNK_SIZE + 1] = chunk_templates[kind - '0'];
             for (int y = 0; y < CHUNK_SIZE; ++y) {
@@ -194,10 +226,9 @@ static void world_build_map(void) {
         }
     }
     world_map[HUB_DOOR_Y][HUB_DOOR_X] = '.';
-    world_map[HUB_DOOR_Y + 1][HUB_DOOR_X] = '.';
-    world_fill_pillar(10, 10, 'Y');
-    world_fill_pillar(10, 15, 'W');
-    world_fill_pillar(10, 20, 'B');
+    world_fill_pillar(1, 1, 'W');
+    world_fill_pillar(3, 1, 'Y');
+    world_fill_pillar(5, 1, 'B');
 
     for (int index = 0; index < WORLD_MAP_SIZE; ++index) {
         world_map[0][index] = '#';
@@ -415,9 +446,9 @@ static void world_update_enemies(World *world) {
 }
 
 static void world_place_player(World *world) {
-    world->player_x = 5 * FIXED_ONE + FIXED_ONE / 2;
-    world->player_y = 16 * FIXED_ONE + FIXED_ONE / 2;
-    world->angle = 0;
+    world->player_x = 3 * FIXED_ONE + FIXED_ONE / 2;
+    world->player_y = 4 * FIXED_ONE + FIXED_ONE / 2;
+    world->angle = 192;
     world->fire_frames = 0;
     world->fire_cooldown = 0;
     world->player_hit_frames = 0;
