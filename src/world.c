@@ -2,152 +2,7 @@
 #include "sound.h"
 #include "pico/stdlib.h"
 
-#define CHUNK_SIZE 16
-#define CHUNK_GRID (WORLD_MAP_SIZE / CHUNK_SIZE)
-
-// Chunk edges are walls with a 2-tile gap at offsets 7 and 8, so any layout connects.
-static const char chunk_templates[7][CHUNK_SIZE][CHUNK_SIZE + 1] = {
-    {
-        "#######..#######",
-        "#..............#",
-        "#.####.##.####.#",
-        "#.####.##.####.#",
-        "#..............#",
-        "#.##.######.##.#",
-        "#.##.######.##.#",
-        "................",
-        "................",
-        "#.##.######.##.#",
-        "#.##.######.##.#",
-        "#..............#",
-        "#.####.##.####.#",
-        "#.####.##.####.#",
-        "#..............#",
-        "#######..#######",
-    },
-    {
-        "#######..#######",
-        "#.####.....###.#",
-        "#.#............#",
-        "#.#..######....#",
-        "#.#..#.........#",
-        "#.#..#.........#",
-        "#.#..#.........#",
-        "................",
-        "................",
-        "#.#..#.........#",
-        "#.#..#.........#",
-        "#.#..######....#",
-        "#.#............#",
-        "#.####.....###.#",
-        "#..............#",
-        "#######..#######",
-    },
-    {
-        "#######..#######",
-        "#..............#",
-        "#.############.#",
-        "#.#..........#.#",
-        "#.#.###..###.#.#",
-        "#.#.#......#.#.#",
-        "#.#.#......#.#.#",
-        "....#......#.#..",
-        "....#......#.#..",
-        "#.#.#......#.#.#",
-        "#.#.#......#.#.#",
-        "#.#.###..###.#.#",
-        "#.#..........#.#",
-        "#.############.#",
-        "#..............#",
-        "#######..#######",
-    },
-    {
-        "#######..#######",
-        "#..............#",
-        "#.#.#.#..#.#.#.#",
-        "#.#.#.#..#.#.#.#",
-        "#.#.#.#..#.#.#.#",
-        "#..............#",
-        "#.#.#.#..#.#.#.#",
-        "................",
-        "................",
-        "#.#.#.#..#.#.#.#",
-        "#..............#",
-        "#.#.#.#..#.#.#.#",
-        "#.#.#.#..#.#.#.#",
-        "#.#.#.#..#.#.#.#",
-        "#..............#",
-        "#######..#######",
-    },
-    {
-        "#######..#######",
-        "#..............#",
-        "#.###.######.###",
-        "#..............#",
-        "###.######.#####",
-        "#..............#",
-        "#.###.######.###",
-        "................",
-        "................",
-        "#.###.######.###",
-        "#..............#",
-        "###.######.#####",
-        "#..............#",
-        "#.###.######.###",
-        "#..............#",
-        "#######..#######",
-    },
-    {
-        "#######..#######",
-        "#..............#",
-        "#.###.####.###.#",
-        "#.###.####.###.#",
-        "#..............#",
-        "#.#####..#####.#",
-        "#.#####..#####.#",
-        "................",
-        "................",
-        "#.#####..#####.#",
-        "#.#####..#####.#",
-        "#..............#",
-        "#.###.####.###.#",
-        "#.###.####.###.#",
-        "#..............#",
-        "#######..#######",
-    },
-    {
-        "#######..#######",
-        "#..............#",
-        "#.##############",
-        "#..............#",
-        "##############.#",
-        "#..............#",
-        "#.##############",
-        "................",
-        "................",
-        "#..............#",
-        "##############.#",
-        "#..............#",
-        "#.##############",
-        "#..............#",
-        "#..............#",
-        "#######..#######",
-    },
-};
-
-// 'H' = hub (drawn over the top-left chunk, which uses template 4).
-static const char chunk_layout[CHUNK_GRID][CHUNK_GRID + 1] = {
-    "H5236041",
-    "35640563",
-    "16035261",
-    "25631024",
-    "06415362",
-    "31562053",
-    "46035641",
-    "15360524",
-};
-
-static uint8_t world_map[WORLD_MAP_SIZE][WORLD_MAP_SIZE];
+#include "world_map_data.h"
 
 static const int16_t sine_quarter[65] = {
     0, 804, 1608, 2410, 3212, 4011, 4808, 5602, 6393, 7179, 7962,
@@ -171,8 +26,6 @@ static const int16_t sine_quarter[65] = {
 #define ENEMY_RESPAWN_MIN_DISTANCE (16 * FIXED_ONE)
 #define ENEMY_INITIAL_MIN_DISTANCE (6 * FIXED_ONE)
 #define PLAYER_MAX_HITS 10
-#define HUB_DOOR_X (HUB_SIZE - 1)
-#define HUB_DOOR_Y 3
 #define PILLAR_REACH_STEPS 128
 
 typedef struct {
@@ -197,45 +50,6 @@ static uint32_t world_random_next(uint32_t *state) {
     value ^= value << 5;
     *state = value;
     return value;
-}
-
-static void world_fill_pillar(int tile_x, int tile_y, uint8_t type) {
-    world_map[tile_y][tile_x] = type;
-}
-
-static void world_build_map(void) {
-    for (int chunk_y = 0; chunk_y < CHUNK_GRID; ++chunk_y) {
-        for (int chunk_x = 0; chunk_x < CHUNK_GRID; ++chunk_x) {
-            char kind = chunk_layout[chunk_y][chunk_x];
-            if (kind == 'H') {
-                kind = '4';
-            }
-            const char (*chunk)[CHUNK_SIZE + 1] = chunk_templates[kind - '0'];
-            for (int y = 0; y < CHUNK_SIZE; ++y) {
-                for (int x = 0; x < CHUNK_SIZE; ++x) {
-                    world_map[chunk_y * CHUNK_SIZE + y][chunk_x * CHUNK_SIZE + x] = (uint8_t)chunk[y][x];
-                }
-            }
-        }
-    }
-
-    for (int y = 0; y < HUB_SIZE; ++y) {
-        for (int x = 0; x < HUB_SIZE; ++x) {
-            bool border = x == 0 || y == 0 || x == HUB_SIZE - 1 || y == HUB_SIZE - 1;
-            world_map[y][x] = border ? '#' : '.';
-        }
-    }
-    world_map[HUB_DOOR_Y][HUB_DOOR_X] = '.';
-    world_fill_pillar(1, 1, 'W');
-    world_fill_pillar(3, 1, 'Y');
-    world_fill_pillar(5, 1, 'B');
-
-    for (int index = 0; index < WORLD_MAP_SIZE; ++index) {
-        world_map[0][index] = '#';
-        world_map[WORLD_MAP_SIZE - 1][index] = '#';
-        world_map[index][0] = '#';
-        world_map[index][WORLD_MAP_SIZE - 1] = '#';
-    }
 }
 
 int16_t world_sin(uint8_t angle) {
@@ -459,7 +273,6 @@ static void world_place_player(World *world) {
 
 void world_init(World *world) {
     random_state = time_us_32() | 1u;
-    world_build_map();
     world_place_player(world);
     for (int index = 0; index < WORLD_ENEMY_COUNT; ++index) {
         world->enemies[index].alive = false;
