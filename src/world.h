@@ -7,7 +7,7 @@
 #include "input.h"
 
 #define WORLD_MAP_SIZE 128
-#define WORLD_ENEMY_COUNT 25
+#define WORLD_ENEMY_COUNT 75
 #define HUB_SIZE 7
 #define FIXED_ONE (1 << 16)
 
