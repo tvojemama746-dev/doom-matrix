@@ -76,8 +76,14 @@ sm_config_set_clkdiv_int_frac(&config, divider_256 >> 8, divider_256 & 0xff);
 
 ## Minimal Game Design
 
-### World
+### Current Game Design (supersedes the World section below)
 
+- One `128x128` map built at startup from 16x16 chunks. The top-left `32x32` area is the hub room; it has one doorway at `x=31, y=23..24`.
+- Monsters never enter the hub, and the player's health refills while inside it. Death respawns the player in the hub.
+- Hub pillars: white = rifle, yellow = shotgun, blue = SMG. Shooting a pillar selects that weapon. There are no menus or levels.
+- 25 monsters spawn at random open tiles outside the hub; killed ones respawn after about 20 s. Each spawn rolls a type: 50% red (5 HP), 35% orange (10 HP), 15% purple (10 HP, 50% chance to block each hit).
+
+### World
 Use one compile-time `20x20` tile map. `#` is a solid wall and `.` is empty space. The outer map border must always be walls.
 
 ```text

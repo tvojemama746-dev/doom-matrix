@@ -2,143 +2,116 @@
 #include "sound.h"
 #include "pico/stdlib.h"
 
-#define WORLD_LEVEL_COUNT 6
+#define CHUNK_SIZE 16
+#define CHUNK_GRID (WORLD_MAP_SIZE / CHUNK_SIZE)
 
-static const uint8_t level_maps[WORLD_LEVEL_COUNT - 1][WORLD_MAP_SIZE][WORLD_MAP_SIZE] = {
+// Chunk edges are walls with a 2-tile gap at offsets 7 and 8, so any layout connects.
+static const char chunk_templates[5][CHUNK_SIZE][CHUNK_SIZE + 1] = {
     {
-        "####################",
-        "#..................#",
-        "#.######.####.####.#",
-        "#.#....#....#....#.#",
-        "#.#.##.####.#.##.#.#",
-        "#...##...#....#....#",
-        "###.######.####.##.#",
-        "#...#....#.#....##.#",
-        "#.###.##.#.#.##....#",
-        "#.....##...#..####.#",
-        "#.##########.##....#",
-        "#.#........#....##.#",
-        "#.#.######.######..#",
-        "#...#....#......#..#",
-        "#####.##.######.#..#",
-        "#.....##........#..#",
-        "#.##############.#.#",
-        "#..................#",
-        "#..................#",
-        "####################",
+        "#######..#######",
+        "#..............#",
+        "#..............#",
+        "#...##....##...#",
+        "#...##....##...#",
+        "#..............#",
+        "#..............#",
+        "................",
+        "................",
+        "#..............#",
+        "#..............#",
+        "#...##....##...#",
+        "#...##....##...#",
+        "#..............#",
+        "#..............#",
+        "#######..#######",
     },
     {
-        "####################",
-        "#....#........#....#",
-        "#....#........#....#",
-        "#....##########....#",
-        "#..................#",
-        "###.############.###",
-        "#..................#",
-        "#..####....####....#",
-        "#..#..#....#..#....#",
-        "#..#..#....#..#....#",
-        "#..####....####....#",
-        "#..................#",
-        "###.############.###",
-        "#..................#",
-        "#....##########....#",
-        "#....#........#....#",
-        "#....#........#....#",
-        "#..................#",
-        "#..................#",
-        "####################",
+        "#######..#######",
+        "#.####.....###.#",
+        "#.#............#",
+        "#.#..######....#",
+        "#.#..#.........#",
+        "#.#..#.........#",
+        "#.#..#.........#",
+        "................",
+        "................",
+        "#.#..#.........#",
+        "#.#..#.........#",
+        "#.#..######....#",
+        "#.#............#",
+        "#.####.....###.#",
+        "#..............#",
+        "#######..#######",
     },
     {
-        "####################",
-        "#.#.#.#.#.#.#.#.#..#",
-        "#..................#",
-        "#.################.#",
-        "#..................#",
-        "#.#.#.#.#.#.#.#.#..#",
-        "#..................#",
-        "#.################.#",
-        "#..................#",
-        "#.#.#.#.#.#.#.#.#..#",
-        "#..................#",
-        "#.################.#",
-        "#..................#",
-        "#.#.#.#.#.#.#.#.#..#",
-        "#..................#",
-        "#.################.#",
-        "#..................#",
-        "#..................#",
-        "#..................#",
-        "####################",
+        "#######..#######",
+        "#..............#",
+        "#.############.#",
+        "#.#..........#.#",
+        "#.#.###..###.#.#",
+        "#.#.#......#.#.#",
+        "#.#.#......#.#.#",
+        "....#......#.#..",
+        "....#......#.#..",
+        "#.#.#......#.#.#",
+        "#.#.#......#.#.#",
+        "#.#.###..###.#.#",
+        "#.#..........#.#",
+        "#.############.#",
+        "#..............#",
+        "#######..#######",
     },
     {
-        "####################",
-        "#..#..........#...#",
-        "#..#..######..#...#",
-        "#..#..#....#..#...#",
-        "#..#..#....#..#...#",
-        "#.....#....#......#",
-        "###.####..####.###.#",
-        "#...#..........#...#",
-        "#...#.########.#...#",
-        "#...#.#......#.#...#",
-        "#...#.#.####.#.#...#",
-        "#...#.#.#..#.#.#...#",
-        "#...#.#.####.#.#...#",
-        "#...#.#......#.#...#",
-        "#...#.########.#...#",
-        "#...#..........#...#",
-        "###.####..####.###.#",
-        "#.....#....#......#",
-        "#..................#",
-        "####################",
+        "#######..#######",
+        "#..............#",
+        "#.#.#..#..#.#..#",
+        "#..............#",
+        "#..#.#....#.#..#",
+        "#..............#",
+        "#.#...#....#.#.#",
+        "................",
+        "................",
+        "#.#...#....#.#.#",
+        "#..............#",
+        "#..#.#....#.#..#",
+        "#..............#",
+        "#.#.#..#..#.#..#",
+        "#..............#",
+        "#######..#######",
     },
     {
-        "####################",
-        "#....#....#....#...#",
-        "#....#....#....#...#",
-        "#.######..######...#",
-        "#..................#",
-        "#..##########.######",
-        "#..#........#......#",
-        "#..#........######.#",
-        "#..#..####........#",
-        "#..#..#..#..####..#",
-        "#..#..#..#..#..#..#",
-        "#..#..####..#..#..#",
-        "#..#........####..#",
-        "#..#........#......#",
-        "#..##########.######",
-        "#..................#",
-        "#.######..######...#",
-        "#....#....#....#...#",
-        "#....#....#....#...#",
-        "####################",
+        "#######..#######",
+        "#..............#",
+        "#..............#",
+        "#..####..####..#",
+        "#..#........#..#",
+        "#..#........#..#",
+        "#..............#",
+        "................",
+        "................",
+        "#..............#",
+        "#..#........#..#",
+        "#..#........#..#",
+        "#..####..####..#",
+        "#..............#",
+        "#..............#",
+        "#######..#######",
     },
 };
 
-static const uint8_t boss_map[WORLD_MAP_SIZE][WORLD_MAP_SIZE] = {
-    "####################",
-    "#..................#",
-    "#..................#",
-    "#..................#",
-    "#..................#",
-    "#..................#",
-    "#..................#",
-    "#..................#",
-    "#..................#",
-    "#..................#",
-    "#..................#",
-    "#..................#",
-    "#..................#",
-    "#..................#",
-    "#..................#",
-    "#..................#",
-    "#..................#",
-    "#..................#",
-    "#..................#",
-    "####################",
+// 'H' = hub (covers the 2x2 top-left chunks).
+static const char chunk_layout[CHUNK_GRID][CHUNK_GRID + 1] = {
+    "HH230413",
+    "HH403240",
+    "13042031",
+    "24310324",
+    "02403142",
+    "31240203",
+    "40324310",
+    "13041024",
 };
+
+static uint8_t world_map[WORLD_MAP_SIZE][WORLD_MAP_SIZE];
 
 static const int16_t sine_quarter[65] = {
     0, 804, 1608, 2410, 3212, 4011, 4808, 5602, 6393, 7179, 7962,
@@ -158,70 +131,82 @@ static const int16_t sine_quarter[65] = {
 #define ENEMY_ATTACK_RANGE (FIXED_ONE + FIXED_ONE / 4)
 #define ENEMY_ATTACK_COOLDOWN 20
 #define ENEMY_ATTACK_FRAMES 5
-#define FIRE_RELOAD_FRAMES 6
+#define ENEMY_RESPAWN_FRAMES 600
+#define ENEMY_RESPAWN_MIN_DISTANCE (16 * FIXED_ONE)
+#define ENEMY_INITIAL_MIN_DISTANCE (6 * FIXED_ONE)
+#define PLAYER_MAX_HITS 10
+#define HUB_DOOR_X (HUB_SIZE - 1)
+#define HUB_DOOR_Y 23
+#define PILLAR_REACH_STEPS 128
 
-enum {
-    WEAPON_ASSAULT_RIFLE = 0,
-    WEAPON_BAZOOKA = 1,
+typedef struct {
+    uint8_t damage;
+    uint8_t cooldown;
+    uint8_t flash_frames;
+    bool automatic;
+} WeaponStats;
+
+static const WeaponStats weapons[] = {
+    [WEAPON_RIFLE] = {1, 6, 3, true},
+    [WEAPON_SHOTGUN] = {4, 24, 5, false},
+    [WEAPON_SMG] = {1, 3, 2, true},
 };
 
-static uint32_t world_random_next(uint32_t *state);
-static uint8_t current_world_level = 1;
-static void world_spawn_enemies(World *world);
+static uint32_t random_state = 2463534242u;
 
-static const uint8_t (*world_level_map(uint8_t level))[WORLD_MAP_SIZE] {
-    if (level >= WORLD_LEVEL_COUNT) {
-        return boss_map;
+static uint32_t world_random_next(uint32_t *state) {
+    uint32_t value = *state;
+    value ^= value << 13;
+    value ^= value >> 17;
+    value ^= value << 5;
+    *state = value;
+    return value;
+}
+
+static void world_fill_pillar(int tile_x, int tile_y, uint8_t type) {
+    for (int dy = 0; dy < 2; ++dy) {
+        for (int dx = 0; dx < 2; ++dx) {
+            world_map[tile_y + dy][tile_x + dx] = type;
+        }
     }
-    return level_maps[level - 1u];
 }
 
-static bool world_is_boss_level_level(uint8_t level) {
-    return level >= 6;
-}
-
-static void world_roll_level(World *world) {
-    if (world_is_boss_level_level(world->level)) {
-        world->level_enemy_count = 1;
-        world->level_enemy_hit_points = 50;
-        return;
+static void world_build_map(void) {
+    for (int chunk_y = 0; chunk_y < CHUNK_GRID; ++chunk_y) {
+        for (int chunk_x = 0; chunk_x < CHUNK_GRID; ++chunk_x) {
+            char kind = chunk_layout[chunk_y][chunk_x];
+            if (kind == 'H') {
+                continue;
+            }
+            const char (*chunk)[CHUNK_SIZE + 1] = chunk_templates[kind - '0'];
+            for (int y = 0; y < CHUNK_SIZE; ++y) {
+                for (int x = 0; x < CHUNK_SIZE; ++x) {
+                    world_map[chunk_y * CHUNK_SIZE + y][chunk_x * CHUNK_SIZE + x] = (uint8_t)chunk[y][x];
+                }
+            }
+        }
     }
 
-    uint32_t random_state = time_us_32() ^ ((uint32_t)world->level * 0x9e3779b9u);
-    world->level_enemy_count = 6 + (uint8_t)(world_random_next(&random_state) % 5u);
-    world->level_enemy_hit_points = world->level;
+    for (int y = 0; y < HUB_SIZE; ++y) {
+        for (int x = 0; x < HUB_SIZE; ++x) {
+            bool border = x == 0 || y == 0 || x == HUB_SIZE - 1 || y == HUB_SIZE - 1;
+            world_map[y][x] = border ? '#' : '.';
+        }
+    }
+    world_map[HUB_DOOR_Y][HUB_DOOR_X] = '.';
+    world_map[HUB_DOOR_Y + 1][HUB_DOOR_X] = '.';
+    world_fill_pillar(10, 10, 'Y');
+    world_fill_pillar(10, 15, 'W');
+    world_fill_pillar(10, 20, 'B');
+
+    for (int index = 0; index < WORLD_MAP_SIZE; ++index) {
+        world_map[0][index] = '#';
+        world_map[WORLD_MAP_SIZE - 1][index] = '#';
+        world_map[index][0] = '#';
+        world_map[index][WORLD_MAP_SIZE - 1] = '#';
+    }
 }
 
-static void world_begin_level(World *world, uint8_t level) {
-    world->level = level;
-    current_world_level = level;
-    world->player_x = FIXED_ONE + FIXED_ONE / 2;
-    world->player_y = 18 * FIXED_ONE + FIXED_ONE / 2;
-    world->angle = 192;
-    world->fire_frames = 0;
-    world->fire_cooldown = 0;
-    world->player_hit_frames = 0;
-    world->player_hits = 0;
-    world->player_dead = false;
-    world->in_menu = false;
-    world->weapon_menu = (level == 3);
-    world->weapon_menu_selection = 0;
-    world->menu_tap_count = 0;
-    world->menu_tap_timer = 0;
-    world_roll_level(world);
-    world_spawn_enemies(world);
-}
-
-static void world_respawn_same_level(World *world) {
-    uint8_t current_level = world->level;
-
-    world_begin_level(world, current_level);
-    world->weapon_type = WEAPON_ASSAULT_RIFLE;
-    world->weapon_menu = false;
-    world->weapon_menu_selection = 0;
-    world->menu_tap_count = 0;
-    world->menu_tap_timer = 0;
-}
 int16_t world_sin(uint8_t angle) {
     uint8_t quadrant = angle >> 6;
     uint8_t index = angle & 63u;
@@ -250,7 +235,7 @@ uint8_t world_tile_type(int tile_x, int tile_y) {
     if (tile_x < 0 || tile_x >= WORLD_MAP_SIZE || tile_y < 0 || tile_y >= WORLD_MAP_SIZE) {
         return '#';
     }
-    return world_level_map(current_world_level)[tile_y][tile_x];
+    return world_map[tile_y][tile_x];
 }
 
 static int32_t world_abs(int32_t value) {
@@ -268,18 +253,16 @@ static bool world_position_clear(int32_t x, int32_t y) {
     return world_position_clear_radius(x, y, PLAYER_RADIUS);
 }
 
-static uint32_t world_random_next(uint32_t *state) {
-    uint32_t value = *state;
-    value ^= value << 13;
-    value ^= value >> 17;
-    value ^= value << 5;
-    *state = value;
-    return value;
+static bool world_in_hub(int32_t x, int32_t y) {
+    return (x >> 16) < HUB_SIZE && (y >> 16) < HUB_SIZE;
 }
 
 static bool world_enemy_position_clear(const World *world, int enemy_index,
                                        int32_t x, int32_t y) {
     if (!world_position_clear_radius(x, y, ENEMY_RADIUS)) {
+        return false;
+    }
+    if (world_in_hub(x - ENEMY_RADIUS, y - ENEMY_RADIUS)) {
         return false;
     }
     if (world_abs(x - world->player_x) < PLAYER_RADIUS + ENEMY_RADIUS
@@ -349,18 +332,12 @@ static void world_update_enemy(World *world, int enemy_index) {
     int32_t delta_x = world->player_x - enemy->x;
     int32_t delta_y = world->player_y - enemy->y;
     int32_t distance = world_abs(delta_x) + world_abs(delta_y);
-    int32_t attack_range = ENEMY_ATTACK_RANGE;
-    int32_t move_speed = ENEMY_MOVE_SPEED;
-    if (world_is_boss_level_level(world->level)) {
-        attack_range += FIXED_ONE / 2;
-        move_speed = ENEMY_MOVE_SPEED / 2;
-    }
-    if (distance <= attack_range) {
-        if (enemy->attack_cooldown == 0) {
+    if (distance <= ENEMY_ATTACK_RANGE) {
+        if (enemy->attack_cooldown == 0 && !world_in_hub(world->player_x, world->player_y)) {
             enemy->attack_frames = ENEMY_ATTACK_FRAMES;
-            if (world->player_hit_frames == 0 && world->player_hits < 10) {
+            if (world->player_hit_frames == 0 && world->player_hits < PLAYER_MAX_HITS) {
                 ++world->player_hits;
-                if (world->player_hits >= 10) {
+                if (world->player_hits >= PLAYER_MAX_HITS) {
                     world->player_dead = true;
                 }
             }
@@ -379,8 +356,8 @@ static void world_update_enemy(World *world, int enemy_index) {
     if (vertical_delta > largest_delta) {
         largest_delta = vertical_delta;
     }
-    int32_t move_x = (int32_t)(((int64_t)delta_x * move_speed) / largest_delta);
-    int32_t move_y = (int32_t)(((int64_t)delta_y * move_speed) / largest_delta);
+    int32_t move_x = (int32_t)(((int64_t)delta_x * ENEMY_MOVE_SPEED) / largest_delta);
+    int32_t move_y = (int32_t)(((int64_t)delta_y * ENEMY_MOVE_SPEED) / largest_delta);
     if (world_enemy_position_clear(world, enemy_index, enemy->x + move_x, enemy->y)) {
         enemy->x += move_x;
     }
@@ -389,104 +366,144 @@ static void world_update_enemy(World *world, int enemy_index) {
     }
 }
 
-static void world_update_enemies(World *world) {
-    for (int index = 0; index < WORLD_ENEMY_COUNT; ++index) {
-        world_update_enemy(world, index);
-    }
-}
+static bool world_spawn_enemy(World *world, int index, int32_t min_distance) {
+    Enemy *enemy = &world->enemies[index];
 
-static void world_spawn_enemies(World *world) {
-    uint32_t random_state = time_us_32() ^ ((uint32_t)world->level * 0x85ebca6bu);
-    uint8_t hit_points = world->level_enemy_hit_points;
+    for (int attempt = 0; attempt < 64; ++attempt) {
+        int tile_x = 1 + (int)(world_random_next(&random_state) % (WORLD_MAP_SIZE - 2));
+        int tile_y = 1 + (int)(world_random_next(&random_state) % (WORLD_MAP_SIZE - 2));
+        int32_t x = (tile_x << 16) + FIXED_ONE / 2;
+        int32_t y = (tile_y << 16) + FIXED_ONE / 2;
+        if (world_abs(x - world->player_x) + world_abs(y - world->player_y) < min_distance
+            || !world_enemy_position_clear(world, index, x, y)) {
+            continue;
+        }
 
-    for (int index = 0; index < WORLD_ENEMY_COUNT; ++index) {
-        Enemy *enemy = &world->enemies[index];
-        enemy->alive = false;
-        enemy->hit_points = hit_points;
+        uint32_t roll = world_random_next(&random_state) % 100u;
+        if (roll < 50u) {
+            enemy->type = ENEMY_TYPE_WEAK;
+            enemy->hit_points = 5;
+        } else if (roll < 85u) {
+            enemy->type = ENEMY_TYPE_NORMAL;
+            enemy->hit_points = 10;
+        } else {
+            enemy->type = ENEMY_TYPE_ARMORED;
+            enemy->hit_points = 10;
+        }
+        enemy->x = x;
+        enemy->y = y;
+        enemy->alive = true;
         enemy->attack_frames = 0;
         enemy->attack_cooldown = 0;
+        enemy->respawn_timer = 0;
+        return true;
     }
-    for (int index = 0; index < world->level_enemy_count; ++index) {
+    return false;
+}
+
+static void world_update_enemies(World *world) {
+    for (int index = 0; index < WORLD_ENEMY_COUNT; ++index) {
         Enemy *enemy = &world->enemies[index];
-        enemy->hit_points = hit_points;
-        for (int attempt = 0; attempt < 256; ++attempt) {
-            int32_t x;
-            int32_t y;
-            if (world_is_boss_level_level(world->level)) {
-                x = 10 * FIXED_ONE + FIXED_ONE / 2;
-                y = 6 * FIXED_ONE + FIXED_ONE / 2;
-            } else {
-                int tile_x = 1 + (int)(world_random_next(&random_state)
-                    % (WORLD_MAP_SIZE - 2));
-                int tile_y = 1 + (int)(world_random_next(&random_state)
-                    % (WORLD_MAP_SIZE - 2));
-                x = (tile_x << 16) + FIXED_ONE / 2;
-                y = (tile_y << 16) + FIXED_ONE / 2;
-            }
-            int32_t player_distance = world_abs(x - world->player_x)
-                + world_abs(y - world->player_y);
-            if (player_distance < 3 * FIXED_ONE
-                || !world_enemy_position_clear(world, index, x, y)) {
-                continue;
-            }
-            enemy->x = x;
-            enemy->y = y;
-            enemy->alive = true;
-            break;
+        if (enemy->alive) {
+            world_update_enemy(world, index);
+        } else if (enemy->respawn_timer > 0) {
+            --enemy->respawn_timer;
+        } else {
+            world_spawn_enemy(world, index, ENEMY_RESPAWN_MIN_DISTANCE);
         }
     }
 }
 
-static void world_advance_level(World *world) {
-    if (world->level < WORLD_LEVEL_COUNT) {
-        world_begin_level(world, (uint8_t)(world->level + 1));
-    } else {
-        world_begin_level(world, 1);
-    }
-}
-
-static void world_reset_game(World *world) {
-    world_respawn_same_level(world);
+static void world_place_player(World *world) {
+    world->player_x = 5 * FIXED_ONE + FIXED_ONE / 2;
+    world->player_y = 16 * FIXED_ONE + FIXED_ONE / 2;
+    world->angle = 0;
+    world->fire_frames = 0;
+    world->fire_cooldown = 0;
+    world->player_hit_frames = 0;
+    world->player_hits = 0;
+    world->player_dead = false;
+    world->weapon_type = WEAPON_RIFLE;
 }
 
 void world_init(World *world) {
-    world->startup_menu = false;
-    world->startup_menu_selection = 0;
-    world->game_mode = 0;
-    world_begin_level(world, 1);
+    random_state = time_us_32() | 1u;
+    world_build_map();
+    world_place_player(world);
+    for (int index = 0; index < WORLD_ENEMY_COUNT; ++index) {
+        world->enemies[index].alive = false;
+        world->enemies[index].respawn_timer = 0;
+        world_spawn_enemy(world, index, ENEMY_INITIAL_MIN_DISTANCE);
+    }
+}
+
+static void world_shoot_pillar(World *world) {
+    // cos/sin are Q15, so >> 2 gives a 1/8 tile step in Q16.
+    int32_t step_x = (int32_t)world_cos(world->angle) >> 2;
+    int32_t step_y = (int32_t)world_sin(world->angle) >> 2;
+    int32_t x = world->player_x;
+    int32_t y = world->player_y;
+
+    for (int step = 0; step < PILLAR_REACH_STEPS; ++step) {
+        x += step_x;
+        y += step_y;
+        uint8_t tile = world_tile_type(x >> 16, y >> 16);
+        if (tile == '.') {
+            continue;
+        }
+        if (tile == 'Y') {
+            world->weapon_type = WEAPON_SHOTGUN;
+        } else if (tile == 'B') {
+            world->weapon_type = WEAPON_SMG;
+        } else if (tile == 'W') {
+            world->weapon_type = WEAPON_RIFLE;
+        }
+        return;
+    }
+}
+
+static void world_shoot_enemy(World *world, uint8_t damage) {
+    int target_index = -1;
+    int32_t nearest_target = INT32_MAX;
+
+    for (int index = 0; index < WORLD_ENEMY_COUNT; ++index) {
+        Enemy *enemy = &world->enemies[index];
+        if (!enemy->alive || !world_enemy_in_sights(world, enemy)) {
+            continue;
+        }
+        int32_t delta_x = enemy->x - world->player_x;
+        int32_t delta_y = enemy->y - world->player_y;
+        int32_t forward = (int32_t)(((int64_t)delta_x * world_cos(world->angle)
+            + (int64_t)delta_y * world_sin(world->angle)) >> 15);
+        if (forward < nearest_target) {
+            nearest_target = forward;
+            target_index = index;
+        }
+    }
+    if (target_index < 0) {
+        return;
+    }
+
+    Enemy *target = &world->enemies[target_index];
+    if (target->type == ENEMY_TYPE_ARMORED && (world_random_next(&random_state) & 1u)) {
+        sound_play_enemy_hit(false);
+        return;
+    }
+    if (target->hit_points > damage) {
+        target->hit_points = (uint8_t)(target->hit_points - damage);
+        sound_play_enemy_hit(false);
+        return;
+    }
+    target->hit_points = 0;
+    target->alive = false;
+    target->respawn_timer = ENEMY_RESPAWN_FRAMES;
+    sound_play_enemy_kill();
 }
 
 void world_update(World *world, const InputState *input) {
     if (world->player_dead) {
-        world_reset_game(world);
+        world_place_player(world);
         return;
-    }
-    if (world->weapon_menu) {
-        if (input->left || input->right) {
-            world->weapon_menu_selection ^= 1u;
-        }
-        if (input->fire_pressed) {
-            world->weapon_type = world->weapon_menu_selection;
-            world->weapon_menu = false;
-            world->menu_tap_count = 0;
-            world->menu_tap_timer = 0;
-        }
-        return;
-    }
-    if (world->in_menu) {
-        if (input->left) {
-            world->startup_menu_selection = (uint8_t)((world->startup_menu_selection + WORLD_LEVEL_COUNT - 1u) % WORLD_LEVEL_COUNT);
-        }
-        if (input->right) {
-            world->startup_menu_selection = (uint8_t)((world->startup_menu_selection + 1u) % WORLD_LEVEL_COUNT);
-        }
-        if (input->fire_pressed) {
-            world_begin_level(world, (uint8_t)(world->startup_menu_selection + 1u));
-        }
-        return;
-    }
-    if (world->menu_tap_timer > 0) {
-        --world->menu_tap_timer;
     }
     if (world->fire_frames > 0) {
         --world->fire_frames;
@@ -494,72 +511,23 @@ void world_update(World *world, const InputState *input) {
     if (world->fire_cooldown > 0) {
         --world->fire_cooldown;
     }
-    if (input->fire_pressed) {
-        if (world->menu_tap_timer == 0) {
-            world->menu_tap_count = 0;
-        }
-        ++world->menu_tap_count;
-        world->menu_tap_timer = 15;
-        if (world->menu_tap_count >= 5) {
-            world->in_menu = true;
-            world->startup_menu_selection = (uint8_t)(world->level - 1u);
-            world->menu_tap_count = 0;
-            world->menu_tap_timer = 0;
-            return;
-        }
-    }
     if (world->player_hit_frames > 0) {
         --world->player_hit_frames;
     }
-    bool fire_weapon = world->weapon_type == WEAPON_ASSAULT_RIFLE
-        ? input->fire_held
-        : input->fire_pressed;
+    if (world_in_hub(world->player_x, world->player_y)) {
+        world->player_hits = 0;
+    }
+
+    const WeaponStats *weapon = &weapons[world->weapon_type];
+    bool fire_weapon = weapon->automatic ? input->fire_held : input->fire_pressed;
     if (fire_weapon && world->fire_cooldown == 0) {
-        int target_index = -1;
-        int32_t nearest_target = INT32_MAX;
-        uint8_t damage = 1;
-        if (world->weapon_type == WEAPON_BAZOOKA) {
-            damage = 3;
-            world->fire_frames = 5;
-            world->fire_cooldown = 18;
-        } else {
-            world->fire_frames = 3;
-            world->fire_cooldown = FIRE_RELOAD_FRAMES;
-        }
+        world->fire_frames = weapon->flash_frames;
+        world->fire_cooldown = weapon->cooldown;
         sound_play_weapon_fire(world->weapon_type);
-        for (int index = 0; index < WORLD_ENEMY_COUNT; ++index) {
-            Enemy *enemy = &world->enemies[index];
-            if (!enemy->alive || !world_enemy_in_sights(world, enemy)) {
-                continue;
-            }
-            int32_t delta_x = enemy->x - world->player_x;
-            int32_t delta_y = enemy->y - world->player_y;
-            int32_t forward = (int32_t)(((int64_t)delta_x * world_cos(world->angle)
-                + (int64_t)delta_y * world_sin(world->angle)) >> 15);
-            if (forward < nearest_target) {
-                nearest_target = forward;
-                target_index = index;
-            }
+        if (world_in_hub(world->player_x, world->player_y)) {
+            world_shoot_pillar(world);
         }
-        if (target_index >= 0) {
-            Enemy *target = &world->enemies[target_index];
-            bool killed = target->hit_points <= damage;
-            if (target->hit_points > damage) {
-                target->hit_points = (uint8_t)(target->hit_points - damage);
-            } else if (target->hit_points > 0) {
-                target->hit_points = 0;
-                target->alive = false;
-            }
-            if (killed) {
-                if (world_is_boss_level_level(world->level) && target_index == 0) {
-                    sound_play_boss_kill();
-                } else {
-                    sound_play_enemy_kill();
-                }
-            } else {
-                sound_play_enemy_hit(false);
-            }
-        }
+        world_shoot_enemy(world, weapon->damage);
     }
 
     if (input->left) {
@@ -570,39 +538,19 @@ void world_update(World *world, const InputState *input) {
     }
 
     int direction = (input->forward ? 1 : 0) - (input->backward ? 1 : 0);
-    if (direction == 0) {
-        world_update_enemies(world);
-        return;
-    }
-
-    int32_t move_x = ((int32_t)world_cos(world->angle) * MOVE_SPEED) >> 15;
-    int32_t move_y = ((int32_t)world_sin(world->angle) * MOVE_SPEED) >> 15;
-    if (direction < 0) {
-        move_x = -move_x;
-        move_y = -move_y;
-    }
-
-    if (world_position_clear(world->player_x + move_x, world->player_y)) {
-        world->player_x += move_x;
-    }
-    if (world_position_clear(world->player_x, world->player_y + move_y)) {
-        world->player_y += move_y;
+    if (direction != 0) {
+        int32_t move_x = ((int32_t)world_cos(world->angle) * MOVE_SPEED) >> 15;
+        int32_t move_y = ((int32_t)world_sin(world->angle) * MOVE_SPEED) >> 15;
+        if (direction < 0) {
+            move_x = -move_x;
+            move_y = -move_y;
+        }
+        if (world_position_clear(world->player_x + move_x, world->player_y)) {
+            world->player_x += move_x;
+        }
+        if (world_position_clear(world->player_x, world->player_y + move_y)) {
+            world->player_y += move_y;
+        }
     }
     world_update_enemies(world);
-
-    bool all_dead = true;
-    for (int index = 0; index < WORLD_ENEMY_COUNT; ++index) {
-        if (world->enemies[index].alive) {
-            all_dead = false;
-            break;
-        }
-    }
-    if (all_dead) {
-        if (world->level >= 6) {
-            world_begin_level(world, 1);
-        } else {
-            world_advance_level(world);
-        }
-        return;
-    }
 }

@@ -6,17 +6,32 @@
 
 #include "input.h"
 
-#define WORLD_MAP_SIZE 20
-#define WORLD_ENEMY_COUNT 10
+#define WORLD_MAP_SIZE 128
+#define WORLD_ENEMY_COUNT 25
+#define HUB_SIZE 32
 #define FIXED_ONE (1 << 16)
+
+enum {
+    WEAPON_RIFLE = 0,
+    WEAPON_SHOTGUN = 1,
+    WEAPON_SMG = 2,
+};
+
+enum {
+    ENEMY_TYPE_WEAK = 0,
+    ENEMY_TYPE_NORMAL = 1,
+    ENEMY_TYPE_ARMORED = 2,
+};
 
 typedef struct {
     int32_t x;
     int32_t y;
     bool alive;
+    uint8_t type;
     uint8_t hit_points;
     uint8_t attack_frames;
     uint8_t attack_cooldown;
+    uint16_t respawn_timer;
 } Enemy;
 
 typedef struct {
@@ -29,18 +44,7 @@ typedef struct {
     uint8_t player_hit_frames;
     uint8_t player_hits;
     bool player_dead;
-    bool in_menu;
-    bool startup_menu;
-    uint8_t startup_menu_selection;
-    bool weapon_menu;
-    uint8_t weapon_menu_selection;
-    uint8_t game_mode;
-    uint8_t level;
-    uint8_t level_enemy_count;
-    uint8_t level_enemy_hit_points;
     uint8_t weapon_type;
-    uint8_t menu_tap_count;
-    uint8_t menu_tap_timer;
 } World;
 
 void world_init(World *world);

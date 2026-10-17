@@ -83,116 +83,56 @@ static int wall_intensity(int32_t distance) {
     return intensity;
 }
 
-static uint32_t wall_color(int32_t distance, bool vertical, uint8_t tile_type) {
-    if (tile_type == 'X') {
-        return 0;
-    }
-    int red = vertical ? 46 : 88;
-    int green = vertical ? 108 : 92;
-    int blue = vertical ? 62 : 94;
-    int intensity = wall_intensity(distance);
-    red = (red * intensity) / 255;
-    green = (green * intensity) / 255;
-    blue = (blue * intensity) / 255;
-    return ((uint32_t)red << 24)
-        | ((uint32_t)green << 16)
-        | ((uint32_t)blue << 8);
-}
-
-static uint32_t enemy_color(bool attacking, int32_t distance) {
-    int red = 168;
-    int green = 28;
-    int blue = 28;
-    int intensity = wall_intensity(distance);
-    if (intensity < ENEMY_MIN_INTENSITY) {
-        intensity = ENEMY_MIN_INTENSITY;
-    }
-    if (attacking) {
-        red = 208;
-        green = 40;
-        blue = 24;
-        intensity = 110;
-    }
+static uint32_t pack_color(int red, int green, int blue, int intensity) {
     return ((uint32_t)((red * intensity) / 255) << 24)
         | ((uint32_t)((green * intensity) / 255) << 16)
         | ((uint32_t)((blue * intensity) / 255) << 8);
 }
 
-static bool enemy_is_boss(const World *world, int index) {
-    return world->level >= 6 && index == 0;
+static uint32_t wall_color(int32_t distance, bool vertical, uint8_t tile_type) {
+    if (tile_type == 'X') {
+        return 0;
+    }
+    int intensity = wall_intensity(distance);
+    if (tile_type == 'Y') {
+        return pack_color(255, 210, 0, intensity < 60 ? 60 : intensity);
+    }
+    if (tile_type == 'B') {
+        return pack_color(0, 70, 255, intensity < 60 ? 60 : intensity);
+    }
+    if (tile_type == 'W') {
+        return pack_color(220, 220, 220, intensity < 60 ? 60 : intensity);
+    }
+    int red = vertical ? 46 : 88;
+    int green = vertical ? 108 : 92;
+    int blue = vertical ? 62 : 94;
+    return pack_color(red, green, blue, intensity);
 }
 
-static void render_level_indicator(const World *world) {
-    uint8_t level_pixels = world->level;
-    if (level_pixels > DISPLAY_WIDTH - 1) {
-        level_pixels = DISPLAY_WIDTH - 1;
+static uint32_t enemy_color(uint8_t type, bool attacking, int32_t distance) {
+    int red = 168;
+    int green = 28;
+    int blue = 28;
+    if (type == ENEMY_TYPE_NORMAL) {
+        red = 220;
+        green = 110;
+        blue = 10;
+    } else if (type == ENEMY_TYPE_ARMORED) {
+        red = 150;
+        green = 30;
+        blue = 200;
     }
-    for (int x = 0; x < level_pixels; ++x) {
-        display_set_pixel(x, 0, 0x00ff0000u);
+    int intensity = wall_intensity(distance);
+    if (intensity < ENEMY_MIN_INTENSITY) {
+        intensity = ENEMY_MIN_INTENSITY;
     }
-}
-
-static void render_pause_button(int button_index, bool selected) {
-    static const uint8_t x_starts[3] = {0, 5, 10};
-    int column = button_index % 3;
-    int row = button_index / 3;
-    int x0 = x_starts[column];
-    int x1 = (column == 2) ? DISPLAY_WIDTH : x_starts[column + 1];
-    int y0 = row * 4;
-    int y1 = y0 + 4;
-    uint32_t color = selected ? 0xff500000u : 0x50300000u;
-
-    for (int y = y0; y < y1; ++y) {
-        for (int x = x0; x < x1; ++x) {
-            display_set_pixel(x, y, color);
-        }
+    if (attacking) {
+        red = red + (255 - red) / 3;
+        green = green + (255 - green) / 3;
+        blue = blue + (255 - blue) / 3;
+        intensity = 140;
     }
-
-    for (int x = x0; x < x1; ++x) {
-        display_set_pixel(x, y0, selected ? 0xffff6000u : 0x80500000u);
-    }
-    for (int y = y0; y < y1; ++y) {
-        display_set_pixel(x0, y, selected ? 0xffff6000u : 0x80500000u);
-    }
-}
-
-static void render_pause_menu(const World *world) {
-    for (int x = 0; x < DISPLAY_WIDTH; ++x) {
-        for (int y = 0; y < DISPLAY_HEIGHT; ++y) {
-            display_set_pixel(x, y, 0x10100000u);
-        }
-    }
-
-    for (int button = 0; button < 6; ++button) {
-        render_pause_button(button, world->startup_menu_selection == button);
-    }
-}
-
-static void render_weapon_button(int x0, int x1, bool selected, uint32_t color) {
-    for (int y = 1; y < DISPLAY_HEIGHT - 1; ++y) {
-        for (int x = x0; x < x1; ++x) {
-            display_set_pixel(x, y, selected ? color : (color & 0x7f7f7f00u));
-        }
-    }
-    for (int x = x0; x < x1; ++x) {
-        display_set_pixel(x, 1, selected ? 0xffffffffu : 0x80808000u);
-        display_set_pixel(x, DISPLAY_HEIGHT - 2, selected ? 0xffffffffu : 0x80808000u);
-    }
-    for (int y = 1; y < DISPLAY_HEIGHT - 1; ++y) {
-        display_set_pixel(x0, y, selected ? 0xffffffffu : 0x80808000u);
-        display_set_pixel(x1 - 1, y, selected ? 0xffffffffu : 0x80808000u);
-    }
-}
-
-static void render_weapon_menu(const World *world) {
-    for (int x = 0; x < DISPLAY_WIDTH; ++x) {
-        for (int y = 0; y < DISPLAY_HEIGHT; ++y) {
-            display_set_pixel(x, y, 0x10100000u);
-        }
-    }
-
-    render_weapon_button(1, 8, world->weapon_menu_selection == 0, 0x00ff0000u);
-    render_weapon_button(8, 15, world->weapon_menu_selection == 1, 0x0000ff00u);
+    return pack_color(red, green, blue, intensity);
 }
 
 static void render_enemy(const World *world, const int32_t wall_distances[DISPLAY_WIDTH]) {
@@ -212,20 +152,16 @@ static void render_enemy(const World *world, const int32_t wall_distances[DISPLA
             continue;
         }
 
-        bool boss = enemy_is_boss(world, index);
         int center_column = DISPLAY_WIDTH / 2
             + (int)(((int64_t)side * ENEMY_SCREEN_SCALE) / forward);
         int sprite_height = (int)(((int64_t)WALL_PROJECTION_DISTANCE) / forward);
-        if (boss) {
-            sprite_height += sprite_height / 2;
-        }
         if (sprite_height < 1) {
             sprite_height = 1;
         }
         if (sprite_height > DISPLAY_HEIGHT) {
             sprite_height = DISPLAY_HEIGHT;
         }
-        int sprite_width = boss ? sprite_height : sprite_height / 2;
+        int sprite_width = sprite_height / 2;
         if (sprite_width < 1) {
             sprite_width = 1;
         }
@@ -233,9 +169,7 @@ static void render_enemy(const World *world, const int32_t wall_distances[DISPLA
         int bottom_row = top_row + sprite_height;
         int left_column = center_column - sprite_width / 2;
         int right_column = left_column + sprite_width;
-        uint32_t color = boss
-            ? (enemy->attack_frames > 0 ? 0xffff3000u : 0xffdd0000u)
-            : enemy_color(enemy->attack_frames > 0, forward);
+        uint32_t color = enemy_color(enemy->type, enemy->attack_frames > 0, forward);
 
         for (int column = left_column; column < right_column; ++column) {
             if (column < 0 || column >= DISPLAY_WIDTH || forward >= wall_distances[column]) {
@@ -249,15 +183,6 @@ static void render_enemy(const World *world, const int32_t wall_distances[DISPLA
 }
 
 void raycaster_render(const World *world) {
-    if (world->weapon_menu) {
-        render_weapon_menu(world);
-        return;
-    }
-    if (world->in_menu) {
-        render_pause_menu(world);
-        return;
-    }
-
     int32_t wall_distances[DISPLAY_WIDTH];
 
     for (int column = 0; column < DISPLAY_WIDTH; ++column) {
@@ -302,8 +227,8 @@ void raycaster_render(const World *world) {
     }
 
     if (world->fire_frames > 0) {
-        uint32_t top_color = world->weapon_type == 1 ? 0xff400000u : 0x0000a0ffu;
-        uint32_t bottom_color = world->weapon_type == 1 ? 0xffff0000u : 0x0000ffffu;
+        uint32_t top_color = world->weapon_type == WEAPON_SHOTGUN ? 0xff400000u : 0x0000a0ffu;
+        uint32_t bottom_color = world->weapon_type == WEAPON_SHOTGUN ? 0xffff0000u : 0x0000ffffu;
         display_set_pixel(7, 3, top_color);
         display_set_pixel(8, 3, top_color);
         display_set_pixel(7, 4, bottom_color);
@@ -314,5 +239,4 @@ void raycaster_render(const World *world) {
     uint32_t red_intensity = ((uint32_t)remaining_hits * 255u) / 10u;
     display_set_pixel(DISPLAY_WIDTH - 1, 0,
         (red_intensity << 24));
-    render_level_indicator(world);
 }
