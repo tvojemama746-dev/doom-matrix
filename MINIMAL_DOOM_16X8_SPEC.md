@@ -229,3 +229,4 @@ Successful flashing ends with `Verifying Flash: 100%` and `OK`.
 
 - Five red LEDs in the top-left corner show the buttons still to press; each goes out when its button is pressed.
 - At start the matrix scrolls the text PRESS 5 BUTTONS TO ESCAPE (about 11 s, the game is paused; fire skips it).
+- The buzzer 'speaks' the intro text: one short blip per letter, pitched by the letter, in sync with the scroll.

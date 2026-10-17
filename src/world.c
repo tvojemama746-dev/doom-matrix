@@ -404,9 +404,27 @@ static void world_shoot_enemy(World *world, uint8_t damage) {
     sound_play_enemy_kill();
 }
 
+// Blips when a letter's first column passes screen column 8 of the scrolling text.
+static void world_intro_speak(const World *world) {
+    static const char message[] = INTRO_MESSAGE;
+    int elapsed = INTRO_FRAMES - world->intro_frames;
+    int column = elapsed / 2 - 8;
+
+    if (elapsed % 2 != 0 || column < 0 || column >= (int)(sizeof(message) - 1) * 6
+        || column % 6 != 0 || message[column / 6] == ' ') {
+        return;
+    }
+    sound_play_speech_blip(message[column / 6]);
+}
+
 void world_update(World *world, const InputState *input) {
     if (world->intro_frames > 0) {
-        world->intro_frames = input->fire_pressed ? 0 : world->intro_frames - 1;
+        if (input->fire_pressed) {
+            world->intro_frames = 0;
+            return;
+        }
+        --world->intro_frames;
+        world_intro_speak(world);
         return;
     }
     if (world->win_frames > 0) {
