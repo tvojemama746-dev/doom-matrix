@@ -15,6 +15,11 @@
 #define INTRO_MESSAGE "PRESS 5 BUTTONS TO ESCAPE"
 // Morse for the message takes 198 units of 2 frames (396 frames); the scroll (1 column per 2 frames) finishes earlier.
 #define INTRO_FRAMES 400
+#define ENDING_MESSAGE "GOOD JOB YOU'VE ESCAPED"
+// Scroll takes (16 + 6 * 23) * 2 = 308 frames, then the facility is shown from outside.
+#define ENDING_TEXT_FRAMES 320
+#define ENDING_VIEW_FRAMES 150
+#define ENDING_FRAMES (ENDING_TEXT_FRAMES + ENDING_VIEW_FRAMES)
 #define FIXED_ONE (1 << 16)
 
 enum {
@@ -55,7 +60,7 @@ typedef struct {
     int32_t button_y[BUTTON_COUNT];
     bool button_pressed[BUTTON_COUNT];
     uint8_t button_target;
-    uint8_t win_frames;
+    uint16_t ending_frames;
     uint8_t test_button_frames;
     uint8_t test_button_hits;
     uint16_t intro_frames;

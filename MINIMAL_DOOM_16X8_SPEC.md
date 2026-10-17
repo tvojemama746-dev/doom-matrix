@@ -230,5 +230,5 @@ Successful flashing ends with `Verifying Flash: 100%` and `OK`.
 - Five red LEDs in the top-left corner show the buttons still to press; each goes out when its button is pressed.
 - At start the matrix scrolls the text PRESS 5 BUTTONS TO ESCAPE (about 11 s, the game is paused; fire skips it).
 - The buzzer plays the intro text in Morse code (700 Hz, unit about 66 ms, about 13 s); the scroll runs alongside.
-- Pressing the fifth button starts the escape cutscene: monsters vanish, the view jumps to the hub and the player runs first-person (head bob, footstep sounds, about 2.7 s) east along the corridor at y=3 into a glowing green exit door at x=14, then the screen fades to white, flashes green and the game restarts.
+- Pressing the fifth button starts the escape cutscene: monsters vanish, the view jumps to the hub and the player runs first-person (head bob, footstep sounds, about 2.7 s) east along the corridor at y=3 into a glowing green exit door at x=14, then the screen fades to white, scrolls GOOD JOB YOU'VE ESCAPED, shows the facility from outside at night (camera pulling back, the player walking away, about 5 s) and the game restarts.
 - Shooting the pink test button 5 times counts as pressing all buttons and starts the escape cutscene.

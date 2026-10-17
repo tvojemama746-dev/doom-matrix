@@ -27,7 +27,6 @@ static const int16_t sine_quarter[65] = {
 #define ENEMY_INITIAL_MIN_DISTANCE (6 * FIXED_ONE)
 #define PLAYER_MAX_HITS 10
 #define PILLAR_REACH_STEPS 128
-#define WIN_FRAMES 90
 #define TEST_BUTTON_FRAMES 15
 #define TEST_BUTTON_HITS_TO_ESCAPE 5
 #define MORSE_UNIT_FRAMES 2
@@ -312,7 +311,7 @@ void world_init(World *world) {
     for (int index = 0; index < BUTTON_COUNT; ++index) {
         world->button_pressed[index] = false;
     }
-    world->win_frames = 0;
+    world->ending_frames = 0;
     world->test_button_frames = 0;
     world->test_button_hits = 0;
     world->intro_frames = INTRO_FRAMES;
@@ -350,7 +349,7 @@ static void world_update_escape(World *world) {
         world->view_bob = 0;
     }
     if (--world->escape_frames == 0) {
-        world->win_frames = WIN_FRAMES;
+        world->ending_frames = ENDING_FRAMES;
         sound_play_boss_kill();
     }
 }
@@ -502,8 +501,8 @@ void world_update(World *world, const InputState *input) {
         world_update_escape(world);
         return;
     }
-    if (world->win_frames > 0) {
-        if (--world->win_frames == 0) {
+    if (world->ending_frames > 0) {
+        if (--world->ending_frames == 0) {
             world_init(world);
         }
         return;

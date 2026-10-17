@@ -1,6 +1,7 @@
 #include "raycaster.h"
 
 #include <stdint.h>
+#include <string.h>
 
 #include "display_ws2812.h"
 
@@ -230,11 +231,15 @@ static void render_target_dot(const World *world) {
 // Classic 5x7 font columns, bit 0 = top row. Only the characters used by INTRO_MESSAGE.
 static uint8_t font_column(char character, int column) {
     static const uint8_t glyphs[][5] = {
+        {0x00, 0x05, 0x03, 0x00, 0x00},  // '
         {0x27, 0x45, 0x45, 0x45, 0x39},  // 5
         {0x7E, 0x11, 0x11, 0x11, 0x7E},  // A
         {0x7F, 0x49, 0x49, 0x49, 0x36},  // B
         {0x3E, 0x41, 0x41, 0x41, 0x22},  // C
+        {0x7F, 0x41, 0x41, 0x22, 0x1C},  // D
         {0x7F, 0x49, 0x49, 0x49, 0x41},  // E
+        {0x3E, 0x41, 0x49, 0x49, 0x7A},  // G
+        {0x20, 0x40, 0x41, 0x3F, 0x01},  // J
         {0x7F, 0x04, 0x08, 0x10, 0x7F},  // N
         {0x3E, 0x41, 0x41, 0x41, 0x3E},  // O
         {0x7F, 0x09, 0x09, 0x09, 0x06},  // P
@@ -242,8 +247,10 @@ static uint8_t font_column(char character, int column) {
         {0x46, 0x49, 0x49, 0x49, 0x31},  // S
         {0x01, 0x01, 0x7F, 0x01, 0x01},  // T
         {0x3F, 0x40, 0x40, 0x40, 0x3F},  // U
+        {0x1F, 0x20, 0x40, 0x20, 0x1F},  // V
+        {0x07, 0x08, 0x70, 0x08, 0x07},  // Y
     };
-    static const char order[] = "5ABCENOPRSTU";
+    static const char order[] = "'5ABCDEGJNOPRSTUVY";
 
     for (int index = 0; order[index] != '\0'; ++index) {
         if (order[index] == character) {
@@ -253,10 +260,8 @@ static uint8_t font_column(char character, int column) {
     return 0;
 }
 
-static void render_intro(const World *world) {
-    static const char message[] = INTRO_MESSAGE;
-    int scroll = (INTRO_FRAMES - world->intro_frames) / 2;
-    int text_columns = (int)(sizeof(message) - 1) * 6;
+static void render_text(const char *message, int scroll) {
+    int text_columns = (int)strlen(message) * 6;
 
     for (int x = 0; x < DISPLAY_WIDTH; ++x) {
         int text_column = scroll + x - DISPLAY_WIDTH;
@@ -267,6 +272,56 @@ static void render_intro(const World *world) {
         for (int y = 0; y < DISPLAY_HEIGHT; ++y) {
             display_set_pixel(x, y, (bits >> y) & 1u ? 0xffa00000u : 0);
         }
+    }
+}
+
+static void render_intro(const World *world) {
+    render_text(INTRO_MESSAGE, (INTRO_FRAMES - world->intro_frames) / 2);
+}
+
+// Night view of the facility from outside; the camera slowly pulls back while the player walks off.
+static void render_exterior(int time) {
+    static const uint8_t stars[][2] = {{2, 0}, {5, 2}, {7, 1}, {12, 0}, {14, 2}, {10, 1}};
+    int width = 12 - 2 * (time * 3 / ENDING_VIEW_FRAMES);
+    int height = time < ENDING_VIEW_FRAMES / 2 ? 4 : 3;
+    int left = (DISPLAY_WIDTH - width) / 2;
+    int top = 5 - height;
+
+    for (int y = 0; y < DISPLAY_HEIGHT; ++y) {
+        for (int x = 0; x < DISPLAY_WIDTH; ++x) {
+            display_set_pixel(x, y, y < 5 ? pack_color(0, 0, 40, 255) : pack_color(0, 30, 0, 255));
+        }
+    }
+    for (int index = 0; index < 6; ++index) {
+        display_set_pixel(stars[index][0], stars[index][1], pack_color(120, 120, 140, 255));
+    }
+    for (int y = top; y < 5; ++y) {
+        for (int x = left; x < left + width; ++x) {
+            display_set_pixel(x, y, y == top ? pack_color(60, 60, 70, 255) : pack_color(90, 90, 100, 255));
+        }
+    }
+    for (int x = left + 1; x < left + width - 1; x += 2) {
+        if (x < 6 || x > 9) {
+            bool lit = ((time / 20) + x) % 3 != 0;
+            display_set_pixel(x, top + 1, lit ? pack_color(255, 200, 50, 255) : pack_color(60, 45, 10, 255));
+        }
+    }
+    for (int y = 3; y < 5; ++y) {
+        display_set_pixel(7, y, pack_color(80, 255, 140, 255));
+        display_set_pixel(8, y, pack_color(80, 255, 140, 255));
+    }
+    int figure_x = 8 + time * 6 / ENDING_VIEW_FRAMES;
+    display_set_pixel(figure_x, 5, pack_color(255, 255, 255, 255));
+    display_set_pixel(figure_x, 6, pack_color(200, 200, 200, 255));
+}
+
+static void render_ending(const World *world) {
+    int elapsed = ENDING_FRAMES - world->ending_frames;
+
+    if (elapsed < ENDING_TEXT_FRAMES) {
+        render_text(ENDING_MESSAGE, elapsed / 2);
+    } else {
+        render_exterior(elapsed - ENDING_TEXT_FRAMES);
     }
 }
 
@@ -286,13 +341,8 @@ void raycaster_render(const World *world) {
         render_intro(world);
         return;
     }
-    if (world->win_frames > 0) {
-        uint32_t color = (world->win_frames / 8) % 2 ? 0x00ff0000u : 0x00200000u;
-        for (int y = 0; y < DISPLAY_HEIGHT; ++y) {
-            for (int x = 0; x < DISPLAY_WIDTH; ++x) {
-                display_set_pixel(x, y, color);
-            }
-        }
+    if (world->ending_frames > 0) {
+        render_ending(world);
         return;
     }
 
