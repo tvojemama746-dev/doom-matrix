@@ -29,6 +29,7 @@ static const int16_t sine_quarter[65] = {
 #define PILLAR_REACH_STEPS 128
 #define WIN_FRAMES 90
 #define TEST_BUTTON_FRAMES 15
+#define MORSE_UNIT_FRAMES 2
 
 typedef struct {
     uint8_t damage;
@@ -404,17 +405,48 @@ static void world_shoot_enemy(World *world, uint8_t damage) {
     sound_play_enemy_kill();
 }
 
-// Blips when a letter's first column passes screen column 8 of the scrolling text.
+static const char *morse_code(char character) {
+    switch (character) {
+    case '5': return ".....";
+    case 'A': return ".-";
+    case 'B': return "-...";
+    case 'C': return "-.-.";
+    case 'E': return ".";
+    case 'N': return "-.";
+    case 'O': return "---";
+    case 'P': return ".--.";
+    case 'R': return ".-.";
+    case 'S': return "...";
+    case 'T': return "-";
+    case 'U': return "..-";
+    default: return "";
+    }
+}
+
+// Plays INTRO_MESSAGE in Morse: dot = 1 unit, dash = 3, gaps 1/3/7, one unit = 2 frames.
 static void world_intro_speak(const World *world) {
     static const char message[] = INTRO_MESSAGE;
     int elapsed = INTRO_FRAMES - world->intro_frames;
-    int column = elapsed / 2 - 8;
+    int unit = 0;
 
-    if (elapsed % 2 != 0 || column < 0 || column >= (int)(sizeof(message) - 1) * 6
-        || column % 6 != 0 || message[column / 6] == ' ') {
+    if (elapsed % MORSE_UNIT_FRAMES != 0) {
         return;
     }
-    sound_play_speech_blip(message[column / 6]);
+    for (int index = 0; message[index] != '\0'; ++index) {
+        if (message[index] == ' ') {
+            unit += 4;
+            continue;
+        }
+        for (const char *element = morse_code(message[index]); *element != '\0'; ++element) {
+            int length = *element == '-' ? 3 : 1;
+            if (unit * MORSE_UNIT_FRAMES == elapsed) {
+                sound_play_morse_tone((uint16_t)(length * MORSE_UNIT_FRAMES * 33));
+                return;
+            }
+            unit += length + 1;
+        }
+        unit += 2;
+    }
 }
 
 void world_update(World *world, const InputState *input) {

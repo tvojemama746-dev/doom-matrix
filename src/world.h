@@ -11,8 +11,8 @@
 #define HUB_SIZE 7
 #define BUTTON_COUNT 5
 #define INTRO_MESSAGE "PRESS 5 BUTTONS TO ESCAPE"
-// Scroll speed is 1 column per 2 frames; 16 is the display width.
-#define INTRO_FRAMES ((16 + 6 * (int)(sizeof(INTRO_MESSAGE) - 1)) * 2)
+// Morse for the message takes 198 units of 2 frames (396 frames); the scroll (1 column per 2 frames) finishes earlier.
+#define INTRO_FRAMES 400
 #define FIXED_ONE (1 << 16)
 
 enum {

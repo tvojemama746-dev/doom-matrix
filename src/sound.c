@@ -133,11 +133,10 @@ void sound_play_boss_kill(void) {
     sound_start_sequence(boss_kill_segments, 3);
 }
 
-// One short pitched blip per letter; the pitch follows the letter so the text sounds like babble.
-void sound_play_speech_blip(char letter) {
-    static SoundSegment blip;
+void sound_play_morse_tone(uint16_t duration_ms) {
+    static SoundSegment tone;
 
-    blip.frequency_hz = (letter >= 'A' && letter <= 'Z') ? 350 + (letter - 'A') * 40 : 700;
-    blip.duration_ms = 55;
-    sound_start_sequence(&blip, 1);
+    tone.frequency_hz = 700;
+    tone.duration_ms = duration_ms;
+    sound_start_sequence(&tone, 1);
 }
