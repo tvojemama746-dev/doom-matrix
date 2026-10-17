@@ -61,6 +61,7 @@ typedef struct {
     bool button_pressed[BUTTON_COUNT];
     uint8_t button_target;
     uint16_t ending_frames;
+    bool outside;
     uint8_t test_button_frames;
     uint8_t test_button_hits;
     uint16_t intro_frames;

@@ -4,6 +4,13 @@
 
 #include "world_map_data.h"
 
+#define OUTSIDE_SIZE 24
+#define OUTSIDE_DOOR_X 11
+#define OUTSIDE_DOOR_Y 9
+
+// Selects which map world_tile_type() reads; mirrors World.outside.
+static bool world_outside;
+
 static const int16_t sine_quarter[65] = {
     0, 804, 1608, 2410, 3212, 4011, 4808, 5602, 6393, 7179, 7962,
     8739, 9512, 10278, 11039, 11793, 12539, 13279, 14010, 14732,
@@ -80,6 +87,12 @@ bool world_is_wall(int tile_x, int tile_y) {
 }
 
 uint8_t world_tile_type(int tile_x, int tile_y) {
+    if (world_outside) {
+        if (tile_x < 0 || tile_x >= OUTSIDE_SIZE || tile_y < 0 || tile_y >= OUTSIDE_SIZE) {
+            return 'F';
+        }
+        return outside_map[tile_y][tile_x];
+    }
     if (tile_x < 0 || tile_x >= WORLD_MAP_SIZE || tile_y < 0 || tile_y >= WORLD_MAP_SIZE) {
         return '#';
     }
@@ -305,6 +318,8 @@ static void world_find_buttons(World *world) {
 }
 
 void world_init(World *world) {
+    world_outside = false;
+    world->outside = false;
     random_state = time_us_32() | 1u;
     world_place_player(world);
     world_find_buttons(world);
@@ -351,6 +366,50 @@ static void world_update_escape(World *world) {
     if (--world->escape_frames == 0) {
         world->ending_frames = ENDING_FRAMES;
         sound_play_boss_kill();
+    }
+}
+
+static void world_enter_outside(World *world) {
+    world_outside = true;
+    world->outside = true;
+    world->player_x = 11 * FIXED_ONE + FIXED_ONE / 2;
+    world->player_y = 14 * FIXED_ONE + FIXED_ONE / 2;
+    world->angle = 192;
+    world->fire_frames = 0;
+    world->view_bob = 0;
+}
+
+// Free walk around the facility; touching the door goes back in and restarts the game.
+static void world_update_outside(World *world, const InputState *input) {
+    if (input->left) {
+        world->angle = (uint8_t)(world->angle - TURN_SPEED);
+    }
+    if (input->right) {
+        world->angle = (uint8_t)(world->angle + TURN_SPEED);
+    }
+
+    int direction = (input->forward ? 1 : 0) - (input->backward ? 1 : 0);
+    if (direction != 0) {
+        int32_t move_x = ((int32_t)world_cos(world->angle) * MOVE_SPEED) >> 15;
+        int32_t move_y = ((int32_t)world_sin(world->angle) * MOVE_SPEED) >> 15;
+        if (direction < 0) {
+            move_x = -move_x;
+            move_y = -move_y;
+        }
+        if (world_position_clear(world->player_x + move_x, world->player_y)) {
+            world->player_x += move_x;
+        }
+        if (world_position_clear(world->player_x, world->player_y + move_y)) {
+            world->player_y += move_y;
+        }
+    }
+
+    int64_t delta_x = (world->player_x - (OUTSIDE_DOOR_X * FIXED_ONE + FIXED_ONE / 2)) >> 8;
+    int64_t delta_y = (world->player_y - (OUTSIDE_DOOR_Y * FIXED_ONE + FIXED_ONE / 2)) >> 8;
+    // 0.9 tile (230/256) from the door centre, i.e. touching it.
+    if (delta_x * delta_x + delta_y * delta_y < 230 * 230) {
+        sound_play_boss_kill();
+        world_init(world);
     }
 }
 
@@ -503,8 +562,12 @@ void world_update(World *world, const InputState *input) {
     }
     if (world->ending_frames > 0) {
         if (--world->ending_frames == 0) {
-            world_init(world);
+            world_enter_outside(world);
         }
+        return;
+    }
+    if (world->outside) {
+        world_update_outside(world, input);
         return;
     }
     if (world->player_dead) {
