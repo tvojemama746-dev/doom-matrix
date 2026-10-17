@@ -26,7 +26,7 @@ static int32_t ray_delta_distance(int32_t ray_component) {
 }
 
 static int32_t cast_ray(const World *world, uint8_t ray_angle, bool *hit_vertical,
-                        uint8_t *tile_type) {
+                        uint8_t *tile_type, int32_t *wall_fraction) {
     int32_t ray_x = (int32_t)world_cos(ray_angle) << 1;
     int32_t ray_y = (int32_t)world_sin(ray_angle) << 1;
     int map_x = world->player_x >> 16;
@@ -62,11 +62,16 @@ static int32_t cast_ray(const World *world, uint8_t ray_angle, bool *hit_vertica
         if (world_is_wall(map_x, map_y)) {
             int32_t distance = *hit_vertical ? side_x - delta_x : side_y - delta_y;
             *tile_type = world_tile_type(map_x, map_y);
+            int64_t hit_coordinate = *hit_vertical
+                ? world->player_y + (((int64_t)ray_y * distance) >> 16)
+                : world->player_x + (((int64_t)ray_x * distance) >> 16);
+            *wall_fraction = (int32_t)(hit_coordinate & 0xffff);
             return distance < FIXED_ONE / 8 ? FIXED_ONE / 8 : distance;
         }
     }
     *hit_vertical = false;
     *tile_type = 'T';
+    *wall_fraction = 0;
     return FAR_DISTANCE;
 }
 
@@ -82,10 +87,6 @@ static int wall_intensity(int32_t distance) {
     }
     return intensity;
 }
-
-static const uint8_t button_colors[BUTTON_COUNT][3] = {
-    {255, 0, 0}, {0, 255, 0}, {255, 0, 255}, {0, 255, 255}, {255, 100, 0},
-};
 
 static uint32_t pack_color(int red, int green, int blue, int intensity) {
     return ((uint32_t)((red * intensity) / 255) << 24)
@@ -117,8 +118,7 @@ static uint32_t wall_color(int32_t distance, bool vertical, uint8_t tile_type) {
         return pack_color(255, 255, 255, 255);
     }
     if (tile_type >= '1' && tile_type < '1' + BUTTON_COUNT) {
-        const uint8_t *color = button_colors[tile_type - '1'];
-        return pack_color(color[0], color[1], color[2], intensity < 60 ? 60 : intensity);
+        return pack_color(255, 0, 0, intensity < 60 ? 60 : intensity);
     }
     int red = vertical ? 46 : 88;
     int green = vertical ? 108 : 92;
@@ -221,8 +221,7 @@ static void render_target_dot(const World *world) {
     if (column > DISPLAY_WIDTH - 1) {
         column = DISPLAY_WIDTH - 1;
     }
-    const uint8_t *color = button_colors[target];
-    display_set_pixel(column, DISPLAY_HEIGHT - 1, pack_color(color[0], color[1], color[2], 255));
+    display_set_pixel(column, DISPLAY_HEIGHT - 1, 0xff000000u);
 }
 
 void raycaster_render(const World *world) {
@@ -241,8 +240,9 @@ void raycaster_render(const World *world) {
     for (int column = 0; column < DISPLAY_WIDTH; ++column) {
         bool hit_vertical;
         uint8_t tile_type;
+        int32_t wall_fraction;
         uint8_t ray_angle = (uint8_t)(world->angle + ray_offsets[column]);
-        int32_t distance = cast_ray(world, ray_angle, &hit_vertical, &tile_type);
+        int32_t distance = cast_ray(world, ray_angle, &hit_vertical, &tile_type, &wall_fraction);
         int32_t perpendicular_distance = (int32_t)(((int64_t)distance
             * world_cos((uint8_t)ray_offsets[column])) >> 15);
         if (tile_type >= '1' && tile_type < '1' + BUTTON_COUNT
@@ -267,11 +267,29 @@ void raycaster_render(const World *world) {
 
         int wall_top = (DISPLAY_HEIGHT - wall_height) / 2;
         int wall_bottom = wall_top + wall_height;
-        uint32_t wall = wall_color(perpendicular_distance, hit_vertical, tile_type);
+        uint32_t wall;
+        uint32_t patch = 0;
+        bool button_face = (tile_type >= '1' && tile_type < '1' + BUTTON_COUNT)
+            || tile_type == 'D' || tile_type == 'T' || tile_type == 't';
+        int patch_top = wall_top;
+        int patch_bottom = wall_bottom;
+        if (button_face) {
+            // Buttons are a small square in the middle of an ordinary wall tile.
+            wall = wall_color(perpendicular_distance, hit_vertical, '#');
+            if (wall_fraction >= 0x4000 && wall_fraction < 0xc000) {
+                patch = wall_color(perpendicular_distance, hit_vertical, tile_type);
+                if (wall_height >= 4) {
+                    patch_top = wall_top + wall_height / 4;
+                    patch_bottom = wall_bottom - wall_height / 4;
+                }
+            }
+        } else {
+            wall = wall_color(perpendicular_distance, hit_vertical, tile_type);
+        }
         for (int row = 0; row < DISPLAY_HEIGHT; ++row) {
             uint32_t color = row < wall_top ? 0x00000200u : 0;
             if (row >= wall_top && row < wall_bottom) {
-                color = wall;
+                color = (patch != 0 && row >= patch_top && row < patch_bottom) ? patch : wall;
             }
             display_set_pixel(column, row, color);
         }
