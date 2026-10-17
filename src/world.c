@@ -27,6 +27,7 @@ static const int16_t sine_quarter[65] = {
 #define ENEMY_INITIAL_MIN_DISTANCE (6 * FIXED_ONE)
 #define PLAYER_MAX_HITS 10
 #define PILLAR_REACH_STEPS 128
+#define WIN_FRAMES 90
 
 typedef struct {
     uint8_t damage;
@@ -271,14 +272,65 @@ static void world_place_player(World *world) {
     world->weapon_type = WEAPON_RIFLE;
 }
 
+static void world_pick_target(World *world) {
+    int64_t best_distance = INT64_MAX;
+
+    for (int index = 0; index < BUTTON_COUNT; ++index) {
+        if (world->button_pressed[index]) {
+            continue;
+        }
+        int64_t delta_x = (world->button_x[index] - world->player_x) >> 8;
+        int64_t delta_y = (world->button_y[index] - world->player_y) >> 8;
+        int64_t distance = delta_x * delta_x + delta_y * delta_y;
+        if (distance < best_distance) {
+            best_distance = distance;
+            world->button_target = (uint8_t)index;
+        }
+    }
+}
+
+static void world_find_buttons(World *world) {
+    for (int y = 0; y < WORLD_MAP_SIZE; ++y) {
+        for (int x = 0; x < WORLD_MAP_SIZE; ++x) {
+            char tile = world_map[y][x];
+            if (tile >= '1' && tile < '1' + BUTTON_COUNT) {
+                int index = tile - '1';
+                world->button_x[index] = (x << 16) + FIXED_ONE / 2;
+                world->button_y[index] = (y << 16) + FIXED_ONE / 2;
+            }
+        }
+    }
+}
+
 void world_init(World *world) {
     random_state = time_us_32() | 1u;
     world_place_player(world);
+    world_find_buttons(world);
+    for (int index = 0; index < BUTTON_COUNT; ++index) {
+        world->button_pressed[index] = false;
+    }
+    world->win_frames = 0;
+    world_pick_target(world);
     for (int index = 0; index < WORLD_ENEMY_COUNT; ++index) {
         world->enemies[index].alive = false;
         world->enemies[index].respawn_timer = 0;
         world_spawn_enemy(world, index, ENEMY_INITIAL_MIN_DISTANCE);
     }
+}
+
+static void world_press_button(World *world, int index) {
+    if (world->button_pressed[index]) {
+        return;
+    }
+    world->button_pressed[index] = true;
+    sound_play_enemy_kill();
+    for (int other = 0; other < BUTTON_COUNT; ++other) {
+        if (!world->button_pressed[other]) {
+            world_pick_target(world);
+            return;
+        }
+    }
+    world->win_frames = WIN_FRAMES;
 }
 
 static void world_shoot_pillar(World *world) {
@@ -301,6 +353,8 @@ static void world_shoot_pillar(World *world) {
             world->weapon_type = WEAPON_SMG;
         } else if (tile == 'W') {
             world->weapon_type = WEAPON_RIFLE;
+        } else if (tile >= '1' && tile < '1' + BUTTON_COUNT) {
+            world_press_button(world, tile - '1');
         }
         return;
     }
@@ -345,6 +399,12 @@ static void world_shoot_enemy(World *world, uint8_t damage) {
 }
 
 void world_update(World *world, const InputState *input) {
+    if (world->win_frames > 0) {
+        if (--world->win_frames == 0) {
+            world_init(world);
+        }
+        return;
+    }
     if (world->player_dead) {
         world_place_player(world);
         return;
@@ -368,9 +428,7 @@ void world_update(World *world, const InputState *input) {
         world->fire_frames = weapon->flash_frames;
         world->fire_cooldown = weapon->cooldown;
         sound_play_weapon_fire(world->weapon_type);
-        if (world_in_hub(world->player_x, world->player_y)) {
-            world_shoot_pillar(world);
-        }
+        world_shoot_pillar(world);
         world_shoot_enemy(world, weapon->damage);
     }
 

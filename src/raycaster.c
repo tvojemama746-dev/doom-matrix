@@ -83,6 +83,10 @@ static int wall_intensity(int32_t distance) {
     return intensity;
 }
 
+static const uint8_t button_colors[BUTTON_COUNT][3] = {
+    {255, 0, 0}, {0, 255, 0}, {255, 0, 255}, {0, 255, 255}, {255, 100, 0},
+};
+
 static uint32_t pack_color(int red, int green, int blue, int intensity) {
     return ((uint32_t)((red * intensity) / 255) << 24)
         | ((uint32_t)((green * intensity) / 255) << 16)
@@ -102,6 +106,13 @@ static uint32_t wall_color(int32_t distance, bool vertical, uint8_t tile_type) {
     }
     if (tile_type == 'W') {
         return pack_color(220, 220, 220, intensity < 60 ? 60 : intensity);
+    }
+    if (tile_type == 'D') {
+        return pack_color(40, 40, 40, intensity < 60 ? 60 : intensity);
+    }
+    if (tile_type >= '1' && tile_type < '1' + BUTTON_COUNT) {
+        const uint8_t *color = button_colors[tile_type - '1'];
+        return pack_color(color[0], color[1], color[2], intensity < 60 ? 60 : intensity);
     }
     int red = vertical ? 46 : 88;
     int green = vertical ? 108 : 92;
@@ -182,7 +193,43 @@ static void render_enemy(const World *world, const int32_t wall_distances[DISPLA
     }
 }
 
+// Bottom-row dot at the target's bearing; clamped to the edge when it is off-screen or behind.
+static void render_target_dot(const World *world) {
+    int target = world->button_target;
+    int32_t delta_x = world->button_x[target] - world->player_x;
+    int32_t delta_y = world->button_y[target] - world->player_y;
+    int32_t forward = (int32_t)(((int64_t)delta_x * world_cos(world->angle)
+        + (int64_t)delta_y * world_sin(world->angle)) >> 15);
+    int32_t side = (int32_t)((-(int64_t)delta_x * world_sin(world->angle)
+        + (int64_t)delta_y * world_cos(world->angle)) >> 15);
+    int column;
+
+    if (forward > FIXED_ONE / 8) {
+        column = DISPLAY_WIDTH / 2 + (int)(((int64_t)side * ENEMY_SCREEN_SCALE) / forward);
+    } else {
+        column = side >= 0 ? DISPLAY_WIDTH - 1 : 0;
+    }
+    if (column < 0) {
+        column = 0;
+    }
+    if (column > DISPLAY_WIDTH - 1) {
+        column = DISPLAY_WIDTH - 1;
+    }
+    const uint8_t *color = button_colors[target];
+    display_set_pixel(column, DISPLAY_HEIGHT - 1, pack_color(color[0], color[1], color[2], 255));
+}
+
 void raycaster_render(const World *world) {
+    if (world->win_frames > 0) {
+        uint32_t color = (world->win_frames / 8) % 2 ? 0x00ff0000u : 0x00200000u;
+        for (int y = 0; y < DISPLAY_HEIGHT; ++y) {
+            for (int x = 0; x < DISPLAY_WIDTH; ++x) {
+                display_set_pixel(x, y, color);
+            }
+        }
+        return;
+    }
+
     int32_t wall_distances[DISPLAY_WIDTH];
 
     for (int column = 0; column < DISPLAY_WIDTH; ++column) {
@@ -192,6 +239,10 @@ void raycaster_render(const World *world) {
         int32_t distance = cast_ray(world, ray_angle, &hit_vertical, &tile_type);
         int32_t perpendicular_distance = (int32_t)(((int64_t)distance
             * world_cos((uint8_t)ray_offsets[column])) >> 15);
+        if (tile_type >= '1' && tile_type < '1' + BUTTON_COUNT
+            && world->button_pressed[tile_type - '1']) {
+            tile_type = 'D';
+        }
         wall_distances[column] = perpendicular_distance;
         int wall_height = (int)(((int64_t)WALL_PROJECTION_DISTANCE)
             / perpendicular_distance);
@@ -239,4 +290,5 @@ void raycaster_render(const World *world) {
     uint32_t red_intensity = ((uint32_t)remaining_hits * 255u) / 10u;
     display_set_pixel(DISPLAY_WIDTH - 1, 0,
         (red_intensity << 24));
+    render_target_dot(world);
 }

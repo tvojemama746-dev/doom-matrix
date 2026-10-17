@@ -9,6 +9,7 @@
 #define WORLD_MAP_SIZE 64
 #define WORLD_ENEMY_COUNT 25
 #define HUB_SIZE 7
+#define BUTTON_COUNT 5
 #define FIXED_ONE (1 << 16)
 
 enum {
@@ -45,6 +46,11 @@ typedef struct {
     uint8_t player_hits;
     bool player_dead;
     uint8_t weapon_type;
+    int32_t button_x[BUTTON_COUNT];
+    int32_t button_y[BUTTON_COUNT];
+    bool button_pressed[BUTTON_COUNT];
+    uint8_t button_target;
+    uint8_t win_frames;
 } World;
 
 void world_init(World *world);

@@ -82,6 +82,7 @@ sm_config_set_clkdiv_int_frac(&config, divider_256 >> 8, divider_256 & 0xff);
 - Monsters never enter the hub, and the player's health refills while inside it. Death respawns the player in the hub.
 - Hub pillars (one tile each, north row): white = rifle, yellow = shotgun, blue = SMG. Shooting a pillar selects that weapon. There are no menus or levels.
 - 25 monsters spawn at random open tiles outside the hub; killed ones respawn after about 20 s. Each spawn rolls a type: 50% red (5 HP), 35% orange (10 HP), 15% purple (10 HP, 50% chance to block each hit).
+- Goal: shoot all 5 colored wall buttons (red, green, magenta, cyan, orange) to win; a pressed button turns dark gray. A dot on the bottom row, in the target button's color, shows its bearing (clamped to the edge when off-screen or behind). The target is the nearest unpressed button, re-picked after each press. After the last one the screen flashes green and the game restarts.
 
 ### World
 Use one compile-time `20x20` tile map. `#` is a solid wall and `.` is empty space. The outer map border must always be walls.
