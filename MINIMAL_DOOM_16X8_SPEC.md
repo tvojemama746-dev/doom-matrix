@@ -83,6 +83,7 @@ sm_config_set_clkdiv_int_frac(&config, divider_256 >> 8, divider_256 & 0xff);
 - Hub pillars (one tile each, north row): white = rifle, yellow = shotgun, blue = SMG. Shooting a pillar selects that weapon. There are no menus or levels.
 - 25 monsters spawn at random open tiles outside the hub; killed ones respawn after about 20 s. Each spawn rolls a type: 50% red (5 HP), 35% orange (10 HP), 15% purple (10 HP, 50% chance to block each hit).
 - Goal: shoot all 5 colored wall buttons (red, green, magenta, cyan, orange) to win; a pressed button turns dark gray. A dot on the bottom row, in the target button's color, shows its bearing (clamped to the edge when off-screen or behind). The target is the nearest unpressed button, re-picked after each press. After the last one the screen flashes green and the game restarts.
+- A sixth, pink test button on the hub's west wall does nothing except flash white and click when shot.
 
 ### World
 Use one compile-time `20x20` tile map. `#` is a solid wall and `.` is empty space. The outer map border must always be walls.
@@ -225,3 +226,4 @@ Successful flashing ends with `Verifying Flash: 100%` and `OK`.
 - Textures, animated sprites, additional enemies, path finding, projectiles, and persistent player damage.
 - USB keyboard, UART controls, networking, and overclocking.
 - Any direct reuse of Doom source code or assets.
+

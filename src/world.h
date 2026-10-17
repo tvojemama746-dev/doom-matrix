@@ -51,6 +51,7 @@ typedef struct {
     bool button_pressed[BUTTON_COUNT];
     uint8_t button_target;
     uint8_t win_frames;
+    uint8_t test_button_frames;
 } World;
 
 void world_init(World *world);

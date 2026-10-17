@@ -28,6 +28,7 @@ static const int16_t sine_quarter[65] = {
 #define PLAYER_MAX_HITS 10
 #define PILLAR_REACH_STEPS 128
 #define WIN_FRAMES 90
+#define TEST_BUTTON_FRAMES 15
 
 typedef struct {
     uint8_t damage;
@@ -310,6 +311,7 @@ void world_init(World *world) {
         world->button_pressed[index] = false;
     }
     world->win_frames = 0;
+    world->test_button_frames = 0;
     world_pick_target(world);
     for (int index = 0; index < WORLD_ENEMY_COUNT; ++index) {
         world->enemies[index].alive = false;
@@ -355,6 +357,9 @@ static void world_shoot_pillar(World *world) {
             world->weapon_type = WEAPON_RIFLE;
         } else if (tile >= '1' && tile < '1' + BUTTON_COUNT) {
             world_press_button(world, tile - '1');
+        } else if (tile == 'T') {
+            world->test_button_frames = TEST_BUTTON_FRAMES;
+            sound_play_enemy_hit(false);
         }
         return;
     }
@@ -408,6 +413,9 @@ void world_update(World *world, const InputState *input) {
     if (world->player_dead) {
         world_place_player(world);
         return;
+    }
+    if (world->test_button_frames > 0) {
+        --world->test_button_frames;
     }
     if (world->fire_frames > 0) {
         --world->fire_frames;

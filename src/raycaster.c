@@ -110,6 +110,12 @@ static uint32_t wall_color(int32_t distance, bool vertical, uint8_t tile_type) {
     if (tile_type == 'D') {
         return pack_color(40, 40, 40, intensity < 60 ? 60 : intensity);
     }
+    if (tile_type == 'T') {
+        return pack_color(255, 60, 150, intensity < 60 ? 60 : intensity);
+    }
+    if (tile_type == 't') {
+        return pack_color(255, 255, 255, 255);
+    }
     if (tile_type >= '1' && tile_type < '1' + BUTTON_COUNT) {
         const uint8_t *color = button_colors[tile_type - '1'];
         return pack_color(color[0], color[1], color[2], intensity < 60 ? 60 : intensity);
@@ -242,6 +248,9 @@ void raycaster_render(const World *world) {
         if (tile_type >= '1' && tile_type < '1' + BUTTON_COUNT
             && world->button_pressed[tile_type - '1']) {
             tile_type = 'D';
+        }
+        if (tile_type == 'T' && world->test_button_frames > 0) {
+            tile_type = 't';
         }
         wall_distances[column] = perpendicular_distance;
         int wall_height = (int)(((int64_t)WALL_PROJECTION_DISTANCE)
